@@ -11,6 +11,7 @@ export const auth = betterAuth({
     provider: "pg",
   }),
   basePath: "/api/auth",
+  trustedOrigins: [process.env.BETTER_AUTH_URL!],
   emailAndPassword: {
     enabled: true,
     sendResetPassword: async ({ user, url }) => {
