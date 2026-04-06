@@ -3080,10 +3080,7 @@ async function getStartManifest(matchedRoutes) {
     injectedHeadScripts
   };
 }
-const manifest = { "a25ee52c3707674a0708759ce51bbede27783305d5c10599240f3902a9f63a55": {
-  functionName: "getSession_createServerFn_handler",
-  importer: () => import("./auth-T4hax7cT.mjs")
-}, "5a937e13e92e0c6e6a228fe017ffc8febc934eeaaeebcdcb0638305331d6723f": {
+const manifest = { "5a937e13e92e0c6e6a228fe017ffc8febc934eeaaeebcdcb0638305331d6723f": {
   functionName: "getPatients_createServerFn_handler",
   importer: () => import("./patients-CD9kdzYw.mjs")
 }, "55d4428e4e5a6fbe50e12d02edd6d7ea4fe01da77e9f00a0b5d4fb46ee1bac99": {
@@ -3095,6 +3092,9 @@ const manifest = { "a25ee52c3707674a0708759ce51bbede27783305d5c10599240f3902a9f6
 }, "fea45675ad74b16dcaab20939ca48a8f2302e079e0051d5562fcb9e267f77e72": {
   functionName: "updatePatient_createServerFn_handler",
   importer: () => import("./patients-CD9kdzYw.mjs")
+}, "a25ee52c3707674a0708759ce51bbede27783305d5c10599240f3902a9f63a55": {
+  functionName: "getSession_createServerFn_handler",
+  importer: () => import("./auth-T4hax7cT.mjs")
 }, "7660757b97881869d0dcce816e055a8f4aaca7418cb413adc5189b7442f43b2f": {
   functionName: "getUsers_createServerFn_handler",
   importer: () => import("./users-mX5YJpLf.mjs")

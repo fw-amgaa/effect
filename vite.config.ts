@@ -11,7 +11,6 @@ const config = defineConfig({
     devtools(),
     nitro({
       scanDirs: ["server"],
-      preset: "netlify",
     }),
     // this is the plugin that enables path aliases
     viteTsConfigPaths({
