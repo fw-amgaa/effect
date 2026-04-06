@@ -1,17 +1,63 @@
 import { createServerFn } from "@tanstack/react-start"
 import { db } from "@/lib/db"
 import { patients, patientTests } from "@/lib/db/schema"
-import { eq, desc } from "drizzle-orm"
+import { eq, desc, ilike, or, and, sql } from "drizzle-orm"
 
-export const getPatients = createServerFn({ method: "GET" }).handler(
-  async () => {
-    const result = await db
-      .select()
-      .from(patients)
-      .orderBy(desc(patients.createdAt))
-    return result
-  },
-)
+export const getPatients = createServerFn({ method: "GET" })
+  .inputValidator(
+    (data: {
+      page?: number
+      pageSize?: number
+      search?: string
+      gender?: string
+    }) => data,
+  )
+  .handler(async ({ data }) => {
+    const page = data.page ?? 1
+    const pageSize = data.pageSize ?? 10
+    const offset = (page - 1) * pageSize
+
+    const conditions = []
+
+    if (data.search) {
+      const q = `%${data.search}%`
+      conditions.push(
+        or(
+          ilike(patients.firstName, q),
+          ilike(patients.lastName, q),
+          ilike(patients.phone, q),
+          ilike(sql`coalesce(${patients.email}, '')`, q),
+        ),
+      )
+    }
+
+    if (data.gender && data.gender !== "all") {
+      conditions.push(eq(patients.gender, data.gender))
+    }
+
+    const where = conditions.length > 0 ? and(...conditions) : undefined
+
+    const [result, countResult] = await Promise.all([
+      db
+        .select()
+        .from(patients)
+        .where(where)
+        .orderBy(desc(patients.createdAt))
+        .limit(pageSize)
+        .offset(offset),
+      db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(patients)
+        .where(where),
+    ])
+
+    return {
+      data: result,
+      total: countResult[0]?.count ?? 0,
+      page,
+      pageSize,
+    }
+  })
 
 export const getPatient = createServerFn({ method: "GET" })
   .inputValidator((data: { id: string }) => data)
@@ -30,8 +76,7 @@ export const getPatient = createServerFn({ method: "GET" })
       .orderBy(patientTests.createdAt)
 
     return { ...patient, tests }
-  },
-)
+  })
 
 export const createPatient = createServerFn({ method: "POST" })
   .inputValidator(
@@ -72,8 +117,7 @@ export const createPatient = createServerFn({ method: "POST" })
     }
 
     return patient
-  },
-)
+  })
 
 export const updatePatient = createServerFn({ method: "POST" })
   .inputValidator(
@@ -96,5 +140,13 @@ export const updatePatient = createServerFn({ method: "POST" })
       .where(eq(patients.id, id))
       .returning()
     return patient
+  })
+
+export const getPatientCount = createServerFn({ method: "GET" }).handler(
+  async () => {
+    const [result] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(patients)
+    return result?.count ?? 0
   },
 )

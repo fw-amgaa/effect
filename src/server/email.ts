@@ -7,9 +7,7 @@ import { eq } from "drizzle-orm"
 const resend = new Resend(process.env.RESEND_API_KEY)
 
 export const sendTestResultEmail = createServerFn({ method: "POST" })
-  .inputValidator(
-    (data: { testId: string }) => data,
-  )
+  .inputValidator((data: { testId: string }) => data)
   .handler(async ({ data }) => {
     const [test] = await db
       .select()
@@ -29,7 +27,7 @@ export const sendTestResultEmail = createServerFn({ method: "POST" })
 
     try {
       const { error } = await resend.emails.send({
-        from: "Effect Med <onboarding@resend.dev>",
+        from: "Effect Med <effect.mon@gmail.com>",
         to: patient.email,
         subject: `Шинжилгээний хариу - ${test.testType}`,
         html: `
@@ -102,8 +100,8 @@ export const sendTestResultEmail = createServerFn({ method: "POST" })
       return { error: null }
     } catch (e) {
       console.error("Email send error:", e)
-      const message = e instanceof Error ? e.message : "Имэйл илгээхэд алдаа гарлаа"
+      const message =
+        e instanceof Error ? e.message : "Имэйл илгээхэд алдаа гарлаа"
       return { error: message }
     }
-  },
-)
+  })
