@@ -51,6 +51,7 @@ import type { Patient, PatientTest } from "@/lib/db/schema"
 export const Route = createFileRoute("/dashboard/patients/$patientId")({
   component: PatientDetailPage,
   loader: ({ params }) => getPatient({ data: { id: params.patientId } }),
+  staleTime: 15_000,
 })
 
 function PatientDetailPage() {

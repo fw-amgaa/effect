@@ -1,6 +1,6 @@
-import { createFileRoute, Link } from "@tanstack/react-router"
-import { useState, useMemo } from "react"
-import { getPatients } from "@/server/patients"
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router"
+import { useState, useEffect, useRef } from "react"
+import { getPatients, getPatientCount } from "@/server/patients"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -21,44 +21,96 @@ import type { Patient } from "@/lib/db/schema"
 
 const PAGE_SIZE = 10
 
+type SearchParams = {
+  page?: number
+  search?: string
+  gender?: string
+}
+
 function getInitials(firstName: string, lastName: string) {
   return ((lastName?.[0] || "") + (firstName?.[0] || "")).toUpperCase()
 }
 
 export const Route = createFileRoute("/dashboard/patients/")({
+  validateSearch: (search: Record<string, unknown>): SearchParams => ({
+    page: Number(search.page) || 1,
+    search: (search.search as string) || "",
+    gender: (search.gender as string) || "all",
+  }),
+  loaderDeps: ({ search }) => ({
+    page: search.page,
+    search: search.search,
+    gender: search.gender,
+  }),
+  loader: async ({ deps }) => {
+    const [patients, totalCount] = await Promise.all([
+      getPatients({
+        data: {
+          page: deps.page || 1,
+          pageSize: PAGE_SIZE,
+          search: deps.search || undefined,
+          gender: deps.gender || undefined,
+        },
+      }),
+      getPatientCount(),
+    ])
+    return { patients, totalCount }
+  },
+  staleTime: 30_000,
   component: PatientsPage,
-  loader: () => getPatients(),
 })
 
 function PatientsPage() {
-  const patients = Route.useLoaderData() as Patient[]
-  const [search, setSearch] = useState("")
-  const [genderFilter, setGenderFilter] = useState<string>("all")
-  const [page, setPage] = useState(1)
+  const { patients, totalCount } = Route.useLoaderData()
+  const { page = 1, search = "", gender = "all" } = Route.useSearch()
+  const navigate = useNavigate()
 
-  const filtered = useMemo(() => {
-    return patients.filter((p) => {
-      const fullName = `${p.lastName} ${p.firstName}`.toLowerCase()
-      const q = search.toLowerCase()
-      const matchesSearch =
-        !q ||
-        fullName.includes(q) ||
-        p.phone.includes(search) ||
-        (p.email && p.email.toLowerCase().includes(q))
-      const matchesGender =
-        genderFilter === "all" || p.gender === genderFilter
-      return matchesSearch && matchesGender
+  // Debounced search
+  const [searchInput, setSearchInput] = useState(search)
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+
+  useEffect(() => {
+    setSearchInput(search)
+  }, [search])
+
+  function handleSearchChange(value: string) {
+    setSearchInput(value)
+    clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(() => {
+      navigate({
+        to: ".",
+        search: (prev: SearchParams) => ({
+          ...prev,
+          search: value || undefined,
+          page: 1,
+        }),
+        replace: true,
+      })
+    }, 300)
+  }
+
+  function setPage(newPage: number) {
+    navigate({
+      to: ".",
+      search: (prev: SearchParams) => ({ ...prev, page: newPage }),
     })
-  }, [patients, search, genderFilter])
+  }
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
+  function setGender(value: string) {
+    navigate({
+      to: ".",
+      search: (prev: SearchParams) => ({
+        ...prev,
+        gender: value === "all" ? undefined : value,
+        page: 1,
+      }),
+    })
+  }
+
+  const totalPages = Math.max(1, Math.ceil(patients.total / PAGE_SIZE))
   const currentPage = Math.min(page, totalPages)
-  const paged = filtered.slice(
-    (currentPage - 1) * PAGE_SIZE,
-    currentPage * PAGE_SIZE,
-  )
   const startIdx = (currentPage - 1) * PAGE_SIZE + 1
-  const endIdx = Math.min(currentPage * PAGE_SIZE, filtered.length)
+  const endIdx = Math.min(currentPage * PAGE_SIZE, patients.total)
 
   function getPageNumbers() {
     const pages: (number | "ellipsis")[] = []
@@ -89,7 +141,7 @@ function PatientsPage() {
             Өвчтөнүүд
           </h2>
           <p className="mt-1 text-sm font-medium text-muted-foreground">
-            Нийт {patients.length} өвчтөн бүртгэлтэй байна.
+            Нийт {totalCount} өвчтөн бүртгэлтэй байна.
           </p>
         </div>
         <Link to="/dashboard/patients/new">
@@ -114,11 +166,8 @@ function PatientsPage() {
               </span>
               <Input
                 placeholder="Өвчтөний нэр, утас хайх..."
-                value={search}
-                onChange={(e) => {
-                  setSearch(e.target.value)
-                  setPage(1)
-                }}
+                value={searchInput}
+                onChange={(e) => handleSearchChange(e.target.value)}
                 className="h-10 rounded-xl border-outline-variant/15 bg-card pl-10 pr-4 text-sm"
               />
             </div>
@@ -129,10 +178,9 @@ function PatientsPage() {
               Хүйс
             </label>
             <Select
-              value={genderFilter}
+              value={gender}
               onValueChange={(v) => {
-                if (v) setGenderFilter(v)
-                setPage(1)
+                if (v) setGender(v)
               }}
               items={{ all: "Бүх хүйс", male: "Эрэгтэй", female: "Эмэгтэй" }}
             >
@@ -155,7 +203,7 @@ function PatientsPage() {
               Нийт бүртгэлтэй өвчтөн
             </h3>
             <p className="text-4xl font-black tracking-tighter">
-              {patients.length.toLocaleString()}
+              {totalCount.toLocaleString()}
             </p>
           </div>
           <div className="absolute -bottom-4 -right-4 h-32 w-32 rounded-full bg-white/10 blur-3xl" />
@@ -192,7 +240,7 @@ function PatientsPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-outline-variant/5">
-              {paged.length === 0 ? (
+              {patients.data.length === 0 ? (
                 <tr>
                   <td
                     colSpan={7}
@@ -202,7 +250,7 @@ function PatientsPage() {
                   </td>
                 </tr>
               ) : (
-                paged.map((patient, idx) => (
+                patients.data.map((patient: Patient, idx: number) => (
                   <tr
                     key={patient.id}
                     className="group cursor-pointer transition-colors hover:bg-surface-container-low"
@@ -267,14 +315,14 @@ function PatientsPage() {
         </div>
 
         {/* Pagination */}
-        {totalPages > 0 && (
+        {patients.total > 0 && (
           <div className="flex items-center justify-between border-t border-outline-variant/10 bg-surface-container-low/30 px-6 py-5">
             <span className="text-xs font-medium text-muted-foreground">
-              Нийт {filtered.length} өвчтөнөөс {startIdx}-{endIdx}
+              Нийт {patients.total} өвчтөнөөс {startIdx}-{endIdx}
             </span>
             <div className="flex items-center gap-1">
               <button
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                onClick={() => setPage(Math.max(1, currentPage - 1))}
                 disabled={currentPage === 1}
                 className="flex size-8 items-center justify-center rounded-lg text-muted-foreground/50 transition-all hover:bg-card hover:shadow-sm disabled:opacity-30"
               >
@@ -300,7 +348,7 @@ function PatientsPage() {
                 ),
               )}
               <button
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                onClick={() => setPage(Math.min(totalPages, currentPage + 1))}
                 disabled={currentPage === totalPages}
                 className="flex size-8 items-center justify-center rounded-lg text-muted-foreground/50 transition-all hover:bg-card hover:shadow-sm disabled:opacity-30"
               >

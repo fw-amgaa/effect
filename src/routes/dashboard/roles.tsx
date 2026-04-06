@@ -1,5 +1,5 @@
-import { createFileRoute, redirect } from "@tanstack/react-router"
-import { useState } from "react"
+import { createFileRoute, redirect, useNavigate, useRouter } from "@tanstack/react-router"
+import { useState, useEffect, useRef } from "react"
 import { getUsers, createUser, updateUserRole, deleteUser } from "@/server/users"
 import { getSession } from "@/server/auth"
 import { Button } from "@/components/ui/button"
@@ -44,6 +44,13 @@ import {
 import type { User } from "@/lib/db/schema"
 import type { Role } from "@/lib/constants"
 
+const PAGE_SIZE = 10
+
+type SearchParams = {
+  page?: number
+  search?: string
+}
+
 function getInitials(name: string) {
   const parts = name.trim().split(/\s+/)
   if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase()
@@ -57,21 +64,88 @@ export const Route = createFileRoute("/dashboard/roles")({
       throw redirect({ to: "/dashboard/patients" })
     }
   },
-  loader: () => getUsers(),
+  validateSearch: (search: Record<string, unknown>): SearchParams => ({
+    page: Number(search.page) || 1,
+    search: (search.search as string) || "",
+  }),
+  loaderDeps: ({ search }) => ({
+    page: search.page,
+    search: search.search,
+  }),
+  loader: ({ deps }) =>
+    getUsers({
+      data: {
+        page: deps.page || 1,
+        pageSize: PAGE_SIZE,
+        search: deps.search || undefined,
+      },
+    }),
+  staleTime: 30_000,
   component: RolesPage,
 })
 
 function RolesPage() {
-  const users = Route.useLoaderData() as User[]
+  const users = Route.useLoaderData()
+  const { page = 1, search = "" } = Route.useSearch()
+  const navigate = useNavigate()
+  const router = useRouter()
   const [createOpen, setCreateOpen] = useState(false)
-  const [search, setSearch] = useState("")
 
-  const filtered = users.filter(
-    (u) =>
-      !search ||
-      u.name.toLowerCase().includes(search.toLowerCase()) ||
-      u.email.toLowerCase().includes(search.toLowerCase()),
-  )
+  // Debounced search
+  const [searchInput, setSearchInput] = useState(search)
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+
+  useEffect(() => {
+    setSearchInput(search)
+  }, [search])
+
+  function handleSearchChange(value: string) {
+    setSearchInput(value)
+    clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(() => {
+      navigate({
+        to: ".",
+        search: (prev: SearchParams) => ({
+          ...prev,
+          search: value || undefined,
+          page: 1,
+        }),
+        replace: true,
+      })
+    }, 300)
+  }
+
+  function setPage(newPage: number) {
+    navigate({
+      to: ".",
+      search: (prev: SearchParams) => ({ ...prev, page: newPage }),
+    })
+  }
+
+  const totalPages = Math.max(1, Math.ceil(users.total / PAGE_SIZE))
+  const currentPage = Math.min(page, totalPages)
+  const startIdx = (currentPage - 1) * PAGE_SIZE + 1
+  const endIdx = Math.min(currentPage * PAGE_SIZE, users.total)
+
+  function getPageNumbers() {
+    const pages: (number | "ellipsis")[] = []
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i)
+    } else {
+      pages.push(1)
+      if (currentPage > 3) pages.push("ellipsis")
+      for (
+        let i = Math.max(2, currentPage - 1);
+        i <= Math.min(totalPages - 1, currentPage + 1);
+        i++
+      ) {
+        pages.push(i)
+      }
+      if (currentPage < totalPages - 2) pages.push("ellipsis")
+      pages.push(totalPages)
+    }
+    return pages
+  }
 
   return (
     <div className="mx-auto max-w-[1440px] space-y-8">
@@ -82,7 +156,7 @@ function RolesPage() {
             Хэрэглэгчийн жагсаалт
           </h2>
           <p className="font-medium text-muted-foreground">
-            Нийт {users.length} хэрэглэгч системд бүртгэлтэй байна.
+            Нийт {users.total} хэрэглэгч системд бүртгэлтэй байна.
           </p>
         </div>
         <div className="flex gap-3">
@@ -93,8 +167,8 @@ function RolesPage() {
             </span>
             <Input
               placeholder="Хэрэглэгч хайх..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              value={searchInput}
+              onChange={(e) => handleSearchChange(e.target.value)}
               className="w-64 rounded-xl border-none bg-card pl-10 pr-4 shadow-sm"
             />
           </div>
@@ -127,7 +201,7 @@ function RolesPage() {
               <CreateUserForm
                 onCreated={() => {
                   setCreateOpen(false)
-                  window.location.reload()
+                  router.invalidate()
                 }}
               />
             </DialogContent>
@@ -159,31 +233,69 @@ function RolesPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-outline-variant/5">
-              {filtered.map((user, idx) => (
-                <UserRow key={user.id} user={user} index={idx + 1} />
-              ))}
+              {users.data.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="px-6 py-16 text-center text-sm text-muted-foreground">
+                    Хэрэглэгч олдсонгүй
+                  </td>
+                </tr>
+              ) : (
+                users.data.map((u: User, idx: number) => (
+                  <UserRow
+                    key={u.id}
+                    user={u}
+                    index={startIdx + idx}
+                    onUpdated={() => router.invalidate()}
+                  />
+                ))
+              )}
             </tbody>
           </table>
         </div>
 
         {/* Pagination footer */}
-        <div className="flex items-center justify-between border-t border-outline-variant/10 bg-surface-container-low/20 px-8 py-6">
-          <span className="text-sm font-medium text-muted-foreground">
-            1-ээс {filtered.length}-р хэрэглэгч харагдаж байна (нийт{" "}
-            {users.length})
-          </span>
-          <div className="flex gap-2">
-            <button className="flex size-8 items-center justify-center rounded-lg border border-outline-variant/20 text-muted-foreground/50 transition-colors hover:bg-card">
-              <HugeiconsIcon icon={ArrowLeft01Icon} strokeWidth={2} className="size-[18px]" />
-            </button>
-            <button className="flex size-8 items-center justify-center rounded-lg bg-primary-container text-xs font-bold text-on-primary-container">
-              1
-            </button>
-            <button className="flex size-8 items-center justify-center rounded-lg border border-outline-variant/20 text-muted-foreground/50 transition-colors hover:bg-card">
-              <HugeiconsIcon icon={ArrowRight01Icon} strokeWidth={2} className="size-[18px]" />
-            </button>
+        {users.total > 0 && (
+          <div className="flex items-center justify-between border-t border-outline-variant/10 bg-surface-container-low/20 px-8 py-6">
+            <span className="text-sm font-medium text-muted-foreground">
+              Нийт {users.total} хэрэглэгчээс {startIdx}-{endIdx}
+            </span>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setPage(Math.max(1, currentPage - 1))}
+                disabled={currentPage === 1}
+                className="flex size-8 items-center justify-center rounded-lg text-muted-foreground/50 transition-all hover:bg-card hover:shadow-sm disabled:opacity-30"
+              >
+                <HugeiconsIcon icon={ArrowLeft01Icon} strokeWidth={2} className="size-[18px]" />
+              </button>
+              {getPageNumbers().map((p, i) =>
+                p === "ellipsis" ? (
+                  <span key={`e-${i}`} className="px-2 text-muted-foreground/40">
+                    ...
+                  </span>
+                ) : (
+                  <button
+                    key={p}
+                    onClick={() => setPage(p)}
+                    className={`flex size-8 items-center justify-center rounded-lg text-xs font-bold transition-all ${
+                      p === currentPage
+                        ? "bg-primary-container text-on-primary-container shadow-sm"
+                        : "text-muted-foreground hover:bg-card hover:shadow-sm"
+                    }`}
+                  >
+                    {p}
+                  </button>
+                ),
+              )}
+              <button
+                onClick={() => setPage(Math.min(totalPages, currentPage + 1))}
+                disabled={currentPage === totalPages}
+                className="flex size-8 items-center justify-center rounded-lg text-muted-foreground/50 transition-all hover:bg-card hover:shadow-sm disabled:opacity-30"
+              >
+                <HugeiconsIcon icon={ArrowRight01Icon} strokeWidth={2} className="size-[18px]" />
+              </button>
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   )
@@ -303,7 +415,15 @@ function CreateUserForm({ onCreated }: { onCreated: () => void }) {
   )
 }
 
-function UserRow({ user, index }: { user: User; index: number }) {
+function UserRow({
+  user,
+  index,
+  onUpdated,
+}: {
+  user: User
+  index: number
+  onUpdated: () => void
+}) {
   const [role, setRole] = useState(user.role)
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -329,7 +449,7 @@ function UserRow({ user, index }: { user: User; index: number }) {
     try {
       await deleteUser({ data: { userId: user.id } })
       toast.success("Хэрэглэгч устгагдлаа")
-      window.location.reload()
+      onUpdated()
     } catch {
       toast.error("Алдаа гарлаа")
     } finally {

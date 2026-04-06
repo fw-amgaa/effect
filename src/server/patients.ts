@@ -32,7 +32,7 @@ export const getPatients = createServerFn({ method: "GET" })
     }
 
     if (data.gender && data.gender !== "all") {
-      conditions.push(eq(patients.gender, data.gender))
+      conditions.push(eq(patients.gender, data.gender as "male" | "female"))
     }
 
     const where = conditions.length > 0 ? and(...conditions) : undefined

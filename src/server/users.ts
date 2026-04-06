@@ -3,15 +3,50 @@ import { getRequest } from "@tanstack/react-start/server"
 import { auth } from "@/lib/auth"
 import { db } from "@/lib/db"
 import { user } from "@/lib/db/schema"
-import { eq } from "drizzle-orm"
+import { eq, ilike, or, sql } from "drizzle-orm"
 import type { Role } from "@/lib/constants"
 
-export const getUsers = createServerFn({ method: "GET" }).handler(
-  async () => {
-    const result = await db.select().from(user).orderBy(user.createdAt)
-    return result
-  },
-)
+export const getUsers = createServerFn({ method: "GET" })
+  .inputValidator(
+    (data: {
+      page?: number
+      pageSize?: number
+      search?: string
+    }) => data,
+  )
+  .handler(async ({ data }) => {
+    const page = data.page ?? 1
+    const pageSize = data.pageSize ?? 10
+    const offset = (page - 1) * pageSize
+
+    const where = data.search
+      ? or(
+          ilike(user.name, `%${data.search}%`),
+          ilike(user.email, `%${data.search}%`),
+        )
+      : undefined
+
+    const [result, countResult] = await Promise.all([
+      db
+        .select()
+        .from(user)
+        .where(where)
+        .orderBy(user.createdAt)
+        .limit(pageSize)
+        .offset(offset),
+      db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(user)
+        .where(where),
+    ])
+
+    return {
+      data: result,
+      total: countResult[0]?.count ?? 0,
+      page,
+      pageSize,
+    }
+  })
 
 export const createUser = createServerFn({ method: "POST" })
   .inputValidator(
