@@ -1,7 +1,7 @@
 import { createFileRoute, useRouter, Link } from "@tanstack/react-router"
 import { useState } from "react"
 import { getPatient, updatePatient } from "@/server/patients"
-import { uploadTestFile, addTestToPatient, deleteTest } from "@/server/tests"
+import { uploadTestFile, addTestsToPatient, deleteTest } from "@/server/tests"
 import { sendTestResultEmail } from "@/server/email"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -13,6 +13,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Skeleton } from "@/components/ui/skeleton"
 import {
   Dialog,
   DialogContent,
@@ -52,7 +54,46 @@ export const Route = createFileRoute("/dashboard/patients/$patientId")({
   component: PatientDetailPage,
   loader: ({ params }) => getPatient({ data: { id: params.patientId } }),
   staleTime: 15_000,
+  pendingComponent: PatientDetailLoading,
+  pendingMinMs: 200,
 })
+
+function PatientDetailLoading() {
+  return (
+    <div className="mx-auto max-w-[1200px] space-y-8">
+      <div className="rounded-2xl border border-outline-variant/10 bg-card p-8">
+        <div className="mb-10 flex items-start gap-8">
+          <Skeleton className="size-24 rounded-2xl" />
+          <div className="space-y-3">
+            <Skeleton className="h-8 w-64" />
+            <Skeleton className="h-4 w-40" />
+          </div>
+        </div>
+        <div className="grid grid-cols-3 gap-x-12 gap-y-10">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="space-y-2">
+              <Skeleton className="h-3 w-20" />
+              <Skeleton className="h-5 w-32" />
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="space-y-4">
+        <Skeleton className="h-7 w-48" />
+        <div className="rounded-xl bg-card">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="flex items-center gap-4 border-b border-outline-variant/5 px-6 py-5">
+              <Skeleton className="h-4 w-8" />
+              <Skeleton className="h-4 w-48" />
+              <Skeleton className="ml-auto h-6 w-20 rounded-full" />
+              <Skeleton className="h-6 w-16 rounded-full" />
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
 
 function PatientDetailPage() {
   const data = Route.useLoaderData() as
@@ -84,7 +125,7 @@ function PatientDetailPage() {
       />
 
       {/* Bottom action cards */}
-      <AddTestCard patientId={data.id} onAdded={() => router.invalidate()} />
+      <AddTestCard patientId={data.id} existingTests={data.tests} onAdded={() => router.invalidate()} />
     </div>
   )
 }
@@ -522,21 +563,33 @@ function TestRow({
 
 function AddTestCard({
   patientId,
+  existingTests,
   onAdded,
 }: {
   patientId: string
+  existingTests: PatientTest[]
   onAdded: () => void
 }) {
-  const [newTest, setNewTest] = useState("")
+  const [selectedTests, setSelectedTests] = useState<string[]>([])
   const [adding, setAdding] = useState(false)
 
+  const existingTestTypes = new Set(existingTests.map((t) => t.testType))
+
+  function toggleTest(test: string) {
+    setSelectedTests((prev) =>
+      prev.includes(test)
+        ? prev.filter((t) => t !== test)
+        : [...prev, test],
+    )
+  }
+
   async function handleAdd() {
-    if (!newTest) return
+    if (selectedTests.length === 0) return
     setAdding(true)
     try {
-      await addTestToPatient({ data: { patientId, testType: newTest } })
-      setNewTest("")
-      toast.success("Шинжилгээ нэмэгдлээ")
+      await addTestsToPatient({ data: { patientId, testTypes: selectedTests } })
+      setSelectedTests([])
+      toast.success(`${selectedTests.length} шинжилгээ нэмэгдлээ`)
       onAdded()
     } catch {
       toast.error("Алдаа гарлаа")
@@ -546,41 +599,75 @@ function AddTestCard({
   }
 
   return (
-    <div className="rounded-xl border border-primary-container/10 bg-surface-container-low p-6">
-      <div className="flex items-center gap-5">
-        <div className="flex size-12 shrink-0 items-center justify-center rounded-full bg-card shadow-sm">
+    <section className="space-y-6 rounded-2xl border border-primary-container/10 bg-surface-container-low p-8">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
           <HugeiconsIcon icon={Add01Icon} strokeWidth={2} className="size-5 text-primary" />
+          <h3 className="text-lg font-bold text-foreground">Шинэ шинжилгээ нэмэх</h3>
         </div>
-        <div className="flex-1">
-          <h4 className="font-bold text-foreground">Шинэ шинжилгээ нэмэх</h4>
-          <p className="text-xs text-muted-foreground">
-            Шинжилгээний төрлийг сонгоно уу
-          </p>
-        </div>
-        <Select
-          value={newTest}
-          onValueChange={(v) => v && setNewTest(v)}
-          items={Object.fromEntries(TEST_TYPES.map((t) => [t, t]))}
-        >
-          <SelectTrigger className="w-64 rounded-xl border-outline-variant/15 bg-card text-sm">
-            <SelectValue placeholder="Шинжилгээ сонгох..." />
-          </SelectTrigger>
-          <SelectContent>
-            {TEST_TYPES.map((t) => (
-              <SelectItem key={t} value={t}>
-                {t}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Button
-          onClick={handleAdd}
-          disabled={!newTest || adding}
-          className="rounded-xl bg-primary-container px-5 text-sm font-semibold text-white"
-        >
-          Нэмэх
-        </Button>
+        <span className="rounded-full bg-surface-container-high px-3 py-1 text-[10px] font-bold uppercase text-muted-foreground">
+          Нийт {TEST_TYPES.length} төрөл
+          {selectedTests.length > 0 && (
+            <> &middot; {selectedTests.length} сонгосон</>
+          )}
+        </span>
       </div>
-    </div>
+
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+        {TEST_TYPES.map((test) => {
+          const isChecked = selectedTests.includes(test)
+          const alreadyExists = existingTestTypes.has(test)
+          return (
+            <label
+              key={test}
+              className={`group relative flex cursor-pointer items-center gap-4 rounded-2xl border p-4 shadow-sm transition-all ${
+                alreadyExists
+                  ? "cursor-default border-transparent bg-card opacity-50"
+                  : isChecked
+                    ? "border-primary-container/50 bg-card"
+                    : "border-transparent bg-card hover:border-primary-container/30"
+              }`}
+            >
+              <Checkbox
+                checked={isChecked}
+                onCheckedChange={() => !alreadyExists && toggleTest(test)}
+                disabled={alreadyExists}
+                className="size-5"
+              />
+              <span className="text-sm font-semibold text-foreground transition-colors group-hover:text-primary">
+                {test}
+              </span>
+              {alreadyExists && (
+                <span className="ml-auto text-[10px] font-bold uppercase text-muted-foreground/50">
+                  Нэмсэн
+                </span>
+              )}
+            </label>
+          )
+        })}
+      </div>
+
+      {selectedTests.length > 0 && (
+        <div className="flex justify-end gap-3 border-t border-outline-variant/10 pt-5">
+          <Button
+            variant="ghost"
+            onClick={() => setSelectedTests([])}
+            className="text-sm font-semibold"
+          >
+            Цуцлах
+          </Button>
+          <Button
+            onClick={handleAdd}
+            disabled={adding}
+            className="gap-2 rounded-xl bg-primary-container px-6 text-sm font-semibold text-white"
+          >
+            <HugeiconsIcon icon={Add01Icon} strokeWidth={2} className="size-4" />
+            {adding
+              ? "Нэмж байна..."
+              : `${selectedTests.length} шинжилгээ нэмэх`}
+          </Button>
+        </div>
+      )}
+    </section>
   )
 }

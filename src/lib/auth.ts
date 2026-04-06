@@ -2,9 +2,7 @@ import { betterAuth } from "better-auth"
 import { drizzleAdapter } from "better-auth/adapters/drizzle"
 import { admin } from "better-auth/plugins"
 import { db } from "./db"
-import { Resend } from "resend"
-
-const resend = new Resend(process.env.RESEND_API_KEY)
+import { sendMail } from "./mail"
 
 export const auth = betterAuth({
   database: drizzleAdapter(db, {
@@ -15,8 +13,7 @@ export const auth = betterAuth({
   emailAndPassword: {
     enabled: true,
     sendResetPassword: async ({ user, url }) => {
-      await resend.emails.send({
-        from: "Effect Med <onboarding@resend.dev>",
+      await sendMail({
         to: user.email,
         subject: "Нууц үг сэргээх - Эффект Эмнэлэг",
         html: `

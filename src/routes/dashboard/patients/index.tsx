@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from "react"
 import { getPatients, getPatientCount } from "@/server/patients"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Skeleton } from "@/components/ui/skeleton"
 import {
   Select,
   SelectContent,
@@ -58,6 +59,8 @@ export const Route = createFileRoute("/dashboard/patients/")({
   },
   staleTime: 30_000,
   component: PatientsPage,
+  pendingComponent: PatientsLoading,
+  pendingMinMs: 200,
 })
 
 function PatientsPage() {
@@ -357,6 +360,35 @@ function PatientsPage() {
             </div>
           </div>
         )}
+      </div>
+    </div>
+  )
+}
+
+function PatientsLoading() {
+  return (
+    <div className="mx-auto max-w-[1200px] space-y-6">
+      <div className="flex items-end justify-between">
+        <div className="space-y-2">
+          <Skeleton className="h-9 w-48" />
+          <Skeleton className="h-5 w-64" />
+        </div>
+        <Skeleton className="h-10 w-36 rounded-xl" />
+      </div>
+      <div className="grid grid-cols-12 gap-6">
+        <Skeleton className="col-span-12 h-28 rounded-2xl lg:col-span-8" />
+        <Skeleton className="col-span-12 h-28 rounded-2xl lg:col-span-4" />
+      </div>
+      <div className="space-y-0 rounded-2xl bg-card">
+        {Array.from({ length: 5 }).map((_, i) => (
+          <div key={i} className="flex items-center gap-4 border-b border-outline-variant/5 px-6 py-5">
+            <Skeleton className="size-8 rounded-full" />
+            <Skeleton className="h-4 w-40" />
+            <Skeleton className="ml-auto h-4 w-16" />
+            <Skeleton className="h-4 w-20" />
+            <Skeleton className="h-4 w-24" />
+          </div>
+        ))}
       </div>
     </div>
   )

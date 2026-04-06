@@ -166,6 +166,12 @@
     border: 1px solid rgba(192, 199, 210, 0.15);
 }
 
+/* Route transition shimmer */
+@keyframes shimmer {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(400%); }
+}
+
 /* Custom scrollbar */
 .custom-scrollbar::-webkit-scrollbar {
     width: 6px;

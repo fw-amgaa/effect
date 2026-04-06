@@ -30,6 +30,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
+import { Skeleton } from "@/components/ui/skeleton"
 import { toast } from "sonner"
 import { ROLES, ROLE_LABELS } from "@/lib/constants"
 import { HugeiconsIcon } from "@hugeicons/react"
@@ -82,6 +83,8 @@ export const Route = createFileRoute("/dashboard/roles")({
     }),
   staleTime: 30_000,
   component: RolesPage,
+  pendingComponent: RolesLoading,
+  pendingMinMs: 200,
 })
 
 function RolesPage() {
@@ -516,5 +519,48 @@ function UserRow({
         </AlertDialog>
       </td>
     </tr>
+  )
+}
+
+function RolesLoading() {
+  return (
+    <div className="mx-auto max-w-[1440px] space-y-8">
+      <div className="flex items-end justify-between">
+        <div className="space-y-2">
+          <Skeleton className="h-9 w-64" />
+          <Skeleton className="h-5 w-80" />
+        </div>
+        <div className="flex gap-3">
+          <Skeleton className="h-10 w-64 rounded-xl" />
+          <Skeleton className="h-10 w-40 rounded-xl" />
+        </div>
+      </div>
+      <div className="overflow-hidden rounded-3xl bg-card">
+        <div className="border-b border-outline-variant/10 bg-surface-container-low/50 px-8 py-5">
+          <div className="flex gap-16">
+            <Skeleton className="h-3 w-6" />
+            <Skeleton className="h-3 w-16" />
+            <Skeleton className="h-3 w-24" />
+            <Skeleton className="h-3 w-16" />
+            <Skeleton className="ml-auto h-3 w-16" />
+          </div>
+        </div>
+        {Array.from({ length: 5 }).map((_, i) => (
+          <div
+            key={i}
+            className="flex items-center gap-6 border-b border-outline-variant/5 px-8 py-4"
+          >
+            <Skeleton className="h-4 w-6" />
+            <div className="flex items-center gap-3">
+              <Skeleton className="size-8 rounded-full" />
+              <Skeleton className="h-4 w-32" />
+            </div>
+            <Skeleton className="h-4 w-48" />
+            <Skeleton className="h-7 w-24 rounded-full" />
+            <Skeleton className="ml-auto size-8 rounded-lg" />
+          </div>
+        ))}
+      </div>
+    </div>
   )
 }

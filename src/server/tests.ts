@@ -71,8 +71,23 @@ export const addTestToPatient = createServerFn({ method: "POST" })
       })
       .returning()
     return test
-  },
-)
+  })
+
+export const addTestsToPatient = createServerFn({ method: "POST" })
+  .inputValidator((data: { patientId: string; testTypes: string[] }) => data)
+  .handler(async ({ data }) => {
+    if (data.testTypes.length === 0) return []
+    const tests = await db
+      .insert(patientTests)
+      .values(
+        data.testTypes.map((testType) => ({
+          patientId: data.patientId,
+          testType,
+        })),
+      )
+      .returning()
+    return tests
+  })
 
 export const deleteTest = createServerFn({ method: "POST" })
   .inputValidator((data: { testId: string }) => data)

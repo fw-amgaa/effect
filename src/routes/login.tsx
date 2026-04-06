@@ -78,13 +78,17 @@ function LoginPage() {
             <div className="space-y-2">
               <label
                 htmlFor="email"
-                className="ml-1 text-[10px] font-bold uppercase tracking-widest text-muted-foreground/70"
+                className="ml-1 text-[10px] font-bold tracking-widest text-muted-foreground/70 uppercase"
               >
                 Имэйл хаяг
               </label>
               <div className="relative">
                 <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 text-muted-foreground/50">
-                  <HugeiconsIcon icon={Mail01Icon} strokeWidth={2} className="size-5" />
+                  <HugeiconsIcon
+                    icon={Mail01Icon}
+                    strokeWidth={2}
+                    className="size-5"
+                  />
                 </div>
                 <Input
                   id="email"
@@ -92,7 +96,7 @@ function LoginPage() {
                   type="email"
                   placeholder="example@effect.mn"
                   required
-                  className="h-12 rounded-xl border-outline-variant/20 bg-surface-container-low pl-11 pr-4 text-sm transition-all focus:border-primary"
+                  className="h-12 rounded-xl border-outline-variant/20 bg-surface-container-low pr-4 pl-11 text-sm transition-all focus:border-primary"
                 />
               </div>
             </div>
@@ -102,7 +106,7 @@ function LoginPage() {
               <div className="flex items-center justify-between px-1">
                 <label
                   htmlFor="password"
-                  className="ml-0 text-[10px] font-bold uppercase tracking-widest text-muted-foreground/70"
+                  className="ml-0 text-[10px] font-bold tracking-widest text-muted-foreground/70 uppercase"
                 >
                   Нууц үг
                 </label>
@@ -115,7 +119,11 @@ function LoginPage() {
               </div>
               <div className="relative">
                 <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 text-muted-foreground/50">
-                  <HugeiconsIcon icon={LockIcon} strokeWidth={2} className="size-5" />
+                  <HugeiconsIcon
+                    icon={LockIcon}
+                    strokeWidth={2}
+                    className="size-5"
+                  />
                 </div>
                 <Input
                   id="password"
@@ -123,7 +131,7 @@ function LoginPage() {
                   type="password"
                   placeholder="••••••••"
                   required
-                  className="h-12 rounded-xl border-outline-variant/20 bg-surface-container-low pl-11 pr-4 text-sm transition-all focus:border-primary"
+                  className="h-12 rounded-xl border-outline-variant/20 bg-surface-container-low pr-4 pl-11 text-sm transition-all focus:border-primary"
                 />
               </div>
             </div>
@@ -133,7 +141,7 @@ function LoginPage() {
               <Checkbox id="remember" className="size-4" />
               <label
                 htmlFor="remember"
-                className="select-none text-sm font-medium text-muted-foreground"
+                className="text-sm font-medium text-muted-foreground select-none"
               >
                 Намайг санах
               </label>
@@ -161,20 +169,19 @@ function LoginPage() {
           {/* Footer */}
           <div className="mt-10 w-full border-t border-outline-variant/10 pt-8 text-center">
             <p className="text-xs font-medium text-muted-foreground/50">
-              © {new Date().getFullYear()} ЭФФЕКТ ЭМНЭЛЭГ. Бүх эрх хуулиар
-              хамгаалагдсан.
+              © {new Date().getFullYear()} ЭФФЕКТ ЭМНЭЛЭГ.
             </p>
           </div>
         </div>
 
         {/* Subtle branding below card */}
-        <div className="mt-8 flex select-none items-center justify-center gap-2 opacity-40">
+        <div className="mt-8 flex items-center justify-center gap-2 opacity-40 select-none">
           <HugeiconsIcon
             icon={ShieldKeyIcon}
             strokeWidth={2}
             className="size-4 text-primary"
           />
-          <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-foreground">
+          <span className="text-[10px] font-bold tracking-[0.2em] text-foreground uppercase">
             Secure Clinical Gateway
           </span>
         </div>
