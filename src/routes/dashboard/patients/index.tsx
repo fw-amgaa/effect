@@ -1,0 +1,315 @@
+import { createFileRoute, Link } from "@tanstack/react-router"
+import { useState, useMemo } from "react"
+import { getPatients } from "@/server/patients"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { HugeiconsIcon } from "@hugeicons/react"
+import {
+  Search01Icon,
+  Add01Icon,
+  ArrowRight01Icon,
+  ArrowLeft01Icon,
+} from "@hugeicons/core-free-icons"
+import type { Patient } from "@/lib/db/schema"
+
+const PAGE_SIZE = 10
+
+function getInitials(firstName: string, lastName: string) {
+  return ((lastName?.[0] || "") + (firstName?.[0] || "")).toUpperCase()
+}
+
+export const Route = createFileRoute("/dashboard/patients/")({
+  component: PatientsPage,
+  loader: () => getPatients(),
+})
+
+function PatientsPage() {
+  const patients = Route.useLoaderData() as Patient[]
+  const [search, setSearch] = useState("")
+  const [genderFilter, setGenderFilter] = useState<string>("all")
+  const [page, setPage] = useState(1)
+
+  const filtered = useMemo(() => {
+    return patients.filter((p) => {
+      const fullName = `${p.lastName} ${p.firstName}`.toLowerCase()
+      const q = search.toLowerCase()
+      const matchesSearch =
+        !q ||
+        fullName.includes(q) ||
+        p.phone.includes(search) ||
+        (p.email && p.email.toLowerCase().includes(q))
+      const matchesGender =
+        genderFilter === "all" || p.gender === genderFilter
+      return matchesSearch && matchesGender
+    })
+  }, [patients, search, genderFilter])
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
+  const currentPage = Math.min(page, totalPages)
+  const paged = filtered.slice(
+    (currentPage - 1) * PAGE_SIZE,
+    currentPage * PAGE_SIZE,
+  )
+  const startIdx = (currentPage - 1) * PAGE_SIZE + 1
+  const endIdx = Math.min(currentPage * PAGE_SIZE, filtered.length)
+
+  function getPageNumbers() {
+    const pages: (number | "ellipsis")[] = []
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i)
+    } else {
+      pages.push(1)
+      if (currentPage > 3) pages.push("ellipsis")
+      for (
+        let i = Math.max(2, currentPage - 1);
+        i <= Math.min(totalPages - 1, currentPage + 1);
+        i++
+      ) {
+        pages.push(i)
+      }
+      if (currentPage < totalPages - 2) pages.push("ellipsis")
+      pages.push(totalPages)
+    }
+    return pages
+  }
+
+  return (
+    <div className="mx-auto max-w-[1200px] space-y-6">
+      {/* Header */}
+      <div className="flex items-end justify-between">
+        <div>
+          <h2 className="text-3xl font-extrabold tracking-tight text-foreground">
+            Өвчтөнүүд
+          </h2>
+          <p className="mt-1 text-sm font-medium text-muted-foreground">
+            Нийт {patients.length} өвчтөн бүртгэлтэй байна.
+          </p>
+        </div>
+        <Link to="/dashboard/patients/new">
+          <Button className="gap-2 rounded-xl bg-primary-container px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:opacity-90 active:scale-95">
+            <HugeiconsIcon icon={Add01Icon} strokeWidth={2} className="size-[18px]" />
+            Шинэ өвчтөн
+          </Button>
+        </Link>
+      </div>
+
+      {/* Filters */}
+      <div className="grid grid-cols-12 gap-6">
+        <div className="col-span-12 flex flex-wrap items-end gap-4 rounded-2xl bg-surface-container-low p-6 lg:col-span-8">
+          {/* Search */}
+          <div className="min-w-[200px] flex-1">
+            <label className="mb-2 ml-1 block text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">
+              Хайлт
+            </label>
+            <div className="relative">
+              <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/40">
+                <HugeiconsIcon icon={Search01Icon} strokeWidth={2} className="size-[18px]" />
+              </span>
+              <Input
+                placeholder="Өвчтөний нэр, утас хайх..."
+                value={search}
+                onChange={(e) => {
+                  setSearch(e.target.value)
+                  setPage(1)
+                }}
+                className="h-10 rounded-xl border-outline-variant/15 bg-card pl-10 pr-4 text-sm"
+              />
+            </div>
+          </div>
+          {/* Gender filter */}
+          <div className="min-w-[160px]">
+            <label className="mb-2 ml-1 block text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">
+              Хүйс
+            </label>
+            <Select
+              value={genderFilter}
+              onValueChange={(v) => {
+                if (v) setGenderFilter(v)
+                setPage(1)
+              }}
+              items={{ all: "Бүх хүйс", male: "Эрэгтэй", female: "Эмэгтэй" }}
+            >
+              <SelectTrigger className="h-10 w-full rounded-xl border-outline-variant/15 bg-card px-4 text-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Бүх хүйс</SelectItem>
+                <SelectItem value="male">Эрэгтэй</SelectItem>
+                <SelectItem value="female">Эмэгтэй</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        {/* Stats card */}
+        <div className="col-span-12 flex flex-col justify-between overflow-hidden rounded-2xl bg-primary p-6 text-white shadow-xl lg:col-span-4">
+          <div>
+            <h3 className="mb-1 text-sm font-medium text-white/80">
+              Нийт бүртгэлтэй өвчтөн
+            </h3>
+            <p className="text-4xl font-black tracking-tighter">
+              {patients.length.toLocaleString()}
+            </p>
+          </div>
+          <div className="absolute -bottom-4 -right-4 h-32 w-32 rounded-full bg-white/10 blur-3xl" />
+        </div>
+      </div>
+
+      {/* Table */}
+      <div className="ghost-border overflow-hidden rounded-2xl bg-card shadow-sm">
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse text-left">
+            <thead>
+              <tr className="border-b border-outline-variant/10 bg-surface-container-low/50">
+                <th className="w-12 px-6 py-5 text-center text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">
+                  #
+                </th>
+                <th className="min-w-[200px] px-6 py-5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">
+                  Овог нэр
+                </th>
+                <th className="px-6 py-5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">
+                  Нас
+                </th>
+                <th className="px-6 py-5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">
+                  Хүйс
+                </th>
+                <th className="px-6 py-5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">
+                  Утас
+                </th>
+                <th className="px-6 py-5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">
+                  Бүртгүүлсэн
+                </th>
+                <th className="px-6 py-5 text-right text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">
+                  Үйлдэл
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-outline-variant/5">
+              {paged.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={7}
+                    className="px-6 py-16 text-center text-sm text-muted-foreground"
+                  >
+                    Өвчтөн олдсонгүй
+                  </td>
+                </tr>
+              ) : (
+                paged.map((patient, idx) => (
+                  <tr
+                    key={patient.id}
+                    className="group cursor-pointer transition-colors hover:bg-surface-container-low"
+                  >
+                    <td className="px-6 py-5 text-center text-xs font-medium text-muted-foreground/50">
+                      {String(startIdx + idx).padStart(2, "0")}
+                    </td>
+                    <td className="px-6 py-5">
+                      <Link
+                        to="/dashboard/patients/$patientId"
+                        params={{ patientId: patient.id }}
+                        className="flex items-center gap-3"
+                      >
+                        <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-surface-container text-[10px] font-bold text-primary">
+                          {getInitials(patient.firstName, patient.lastName)}
+                        </div>
+                        <div>
+                          <p className="text-sm font-bold text-foreground">
+                            {patient.lastName} {patient.firstName}
+                          </p>
+                          {patient.email && (
+                            <p className="text-[10px] text-muted-foreground/50">
+                              {patient.email}
+                            </p>
+                          )}
+                        </div>
+                      </Link>
+                    </td>
+                    <td className="px-6 py-5 text-sm font-medium text-muted-foreground">
+                      {patient.age}
+                    </td>
+                    <td className="px-6 py-5 text-sm font-medium text-muted-foreground">
+                      {patient.gender === "male" ? "Эрэгтэй" : "Эмэгтэй"}
+                    </td>
+                    <td className="px-6 py-5 text-sm text-muted-foreground">
+                      {patient.phone}
+                    </td>
+                    <td className="px-6 py-5">
+                      <p className="text-xs font-medium text-muted-foreground">
+                        {new Date(patient.createdAt).toLocaleDateString("mn-MN")}
+                      </p>
+                    </td>
+                    <td className="px-6 py-5 text-right">
+                      <Link
+                        to="/dashboard/patients/$patientId"
+                        params={{ patientId: patient.id }}
+                      >
+                        <button className="p-2 text-muted-foreground/40 transition-colors hover:text-primary">
+                          <HugeiconsIcon
+                            icon={ArrowRight01Icon}
+                            strokeWidth={2}
+                            className="size-5"
+                          />
+                        </button>
+                      </Link>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Pagination */}
+        {totalPages > 0 && (
+          <div className="flex items-center justify-between border-t border-outline-variant/10 bg-surface-container-low/30 px-6 py-5">
+            <span className="text-xs font-medium text-muted-foreground">
+              Нийт {filtered.length} өвчтөнөөс {startIdx}-{endIdx}
+            </span>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="flex size-8 items-center justify-center rounded-lg text-muted-foreground/50 transition-all hover:bg-card hover:shadow-sm disabled:opacity-30"
+              >
+                <HugeiconsIcon icon={ArrowLeft01Icon} strokeWidth={2} className="size-[18px]" />
+              </button>
+              {getPageNumbers().map((p, i) =>
+                p === "ellipsis" ? (
+                  <span key={`e-${i}`} className="px-2 text-muted-foreground/40">
+                    ...
+                  </span>
+                ) : (
+                  <button
+                    key={p}
+                    onClick={() => setPage(p)}
+                    className={`flex size-8 items-center justify-center rounded-lg text-xs font-bold transition-all ${
+                      p === currentPage
+                        ? "bg-primary text-white shadow-sm"
+                        : "text-muted-foreground hover:bg-card hover:shadow-sm"
+                    }`}
+                  >
+                    {p}
+                  </button>
+                ),
+              )}
+              <button
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                className="flex size-8 items-center justify-center rounded-lg text-muted-foreground/50 transition-all hover:bg-card hover:shadow-sm disabled:opacity-30"
+              >
+                <HugeiconsIcon icon={ArrowRight01Icon} strokeWidth={2} className="size-[18px]" />
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
