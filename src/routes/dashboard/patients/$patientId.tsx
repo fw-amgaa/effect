@@ -13,6 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { DatePicker } from "@/components/ui/date-picker"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
@@ -47,6 +48,7 @@ import {
   UserIcon,
   File01Icon,
   Analytics01Icon,
+  Loading03Icon,
 } from "@hugeicons/core-free-icons"
 import type { Patient, PatientTest } from "@/lib/db/schema"
 
@@ -221,6 +223,7 @@ function PatientEditForm({
 }) {
   const [loading, setLoading] = useState(false)
   const [gender, setGender] = useState(patient.gender)
+  const [dateOfBirth, setDateOfBirth] = useState(patient.dateOfBirth)
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -234,7 +237,7 @@ function PatientEditForm({
           lastName: fd.get("lastName") as string,
           age: Number(fd.get("age")),
           gender: gender as "male" | "female",
-          dateOfBirth: fd.get("dateOfBirth") as string,
+          dateOfBirth,
           phone: fd.get("phone") as string,
           email: (fd.get("email") as string) || undefined,
         },
@@ -287,8 +290,13 @@ function PatientEditForm({
           </Field>
         </div>
         <Field>
-          <FieldLabel htmlFor="dateOfBirth">Төрсөн огноо</FieldLabel>
-          <Input id="dateOfBirth" name="dateOfBirth" type="date" defaultValue={patient.dateOfBirth} required className="rounded-xl" />
+          <FieldLabel>Төрсөн огноо</FieldLabel>
+          <DatePicker
+            value={dateOfBirth}
+            onChange={setDateOfBirth}
+            placeholder="Огноо сонгох"
+            required
+          />
         </Field>
         <div className="grid grid-cols-2 gap-4">
           <Field>
@@ -499,9 +507,13 @@ function TestRow({
       <td className="px-6 py-5">
         <div className="flex items-center justify-end gap-2">
           {/* Upload */}
-          <label className="cursor-pointer">
+          <label className={uploading ? "pointer-events-none" : "cursor-pointer"}>
             <span className="inline-flex size-8 items-center justify-center rounded-lg text-primary transition-colors hover:bg-surface-container-high">
-              <HugeiconsIcon icon={Upload04Icon} strokeWidth={2} className="size-5" />
+              {uploading ? (
+                <HugeiconsIcon icon={Loading03Icon} strokeWidth={2} className="size-5 animate-spin" />
+              ) : (
+                <HugeiconsIcon icon={Upload04Icon} strokeWidth={2} className="size-5" />
+              )}
             </span>
             <input
               type="file"
@@ -516,10 +528,14 @@ function TestRow({
             <button
               onClick={handleSendEmail}
               disabled={sending}
-              className="inline-flex size-8 items-center justify-center rounded-lg text-primary transition-colors hover:bg-surface-container-high"
+              className="inline-flex size-8 items-center justify-center rounded-lg text-primary transition-colors hover:bg-surface-container-high disabled:opacity-50"
               title="Имэйл илгээх"
             >
-              <HugeiconsIcon icon={SentIcon} strokeWidth={2} className="size-5" />
+              {sending ? (
+                <HugeiconsIcon icon={Loading03Icon} strokeWidth={2} className="size-5 animate-spin" />
+              ) : (
+                <HugeiconsIcon icon={SentIcon} strokeWidth={2} className="size-5" />
+              )}
             </button>
           ) : (
             <span className="inline-flex size-8 items-center justify-center text-muted-foreground/20">

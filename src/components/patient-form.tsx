@@ -8,6 +8,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { DatePicker } from "@/components/ui/date-picker"
 import { GENDER_OPTIONS } from "@/lib/constants"
 import { createPatient } from "@/server/patients"
 import { toast } from "sonner"
@@ -28,10 +29,12 @@ interface PatientFormProps {
 export function PatientForm({ user, onSuccess }: PatientFormProps) {
   const [loading, setLoading] = useState(false)
   const [gender, setGender] = useState("")
+  const [dateOfBirth, setDateOfBirth] = useState("")
 
   function resetForm(form: HTMLFormElement) {
     form.reset()
     setGender("")
+    setDateOfBirth("")
   }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -48,7 +51,7 @@ export function PatientForm({ user, onSuccess }: PatientFormProps) {
           firstName: formData.get("firstName") as string,
           age: Number(formData.get("age")),
           gender: gender as "male" | "female",
-          dateOfBirth: formData.get("dateOfBirth") as string,
+          dateOfBirth,
           phone: formData.get("phone") as string,
           email: (formData.get("email") as string) || undefined,
           createdBy: user?.id,
@@ -150,11 +153,11 @@ export function PatientForm({ user, onSuccess }: PatientFormProps) {
             <label className="ml-1 block text-[11px] font-bold uppercase text-muted-foreground/80">
               Төрсөн огноо
             </label>
-            <Input
-              name="dateOfBirth"
-              type="date"
+            <DatePicker
+              value={dateOfBirth}
+              onChange={setDateOfBirth}
+              placeholder="Огноо сонгох"
               required
-              className="h-11 rounded-xl border-outline-variant/30 bg-card px-4 text-sm"
             />
           </div>
 
@@ -212,7 +215,7 @@ export function PatientForm({ user, onSuccess }: PatientFormProps) {
         </Button>
         <Button
           type="submit"
-          disabled={loading || !gender}
+          disabled={loading || !gender || !dateOfBirth}
           className="gap-3 bg-primary-container px-12 py-3.5 text-sm font-bold text-on-primary-container shadow-lg shadow-primary-container/20 transition-all hover:scale-[1.02] hover:bg-primary-container/90 active:scale-95"
         >
           <HugeiconsIcon icon={RegisterIcon} strokeWidth={2} className="size-[18px]" />

@@ -172,6 +172,24 @@
     100% { transform: translateX(400%); }
 }
 
+/* React Day Picker dropdown styles */
+.rdp-dropdown {
+    appearance: none;
+    -webkit-appearance: none;
+    cursor: pointer;
+    background: var(--surface-container-low);
+    border: 1px solid var(--outline-variant);
+    border-radius: 0.5rem;
+    padding: 0.25rem 0.5rem;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--foreground);
+}
+.rdp-dropdown:focus {
+    outline: 2px solid var(--ring);
+    outline-offset: 1px;
+}
+
 /* Custom scrollbar */
 .custom-scrollbar::-webkit-scrollbar {
     width: 6px;
