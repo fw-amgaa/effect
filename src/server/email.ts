@@ -53,7 +53,7 @@ export const sendBulkTestResultEmail = createServerFn({ method: "POST" })
                     ${file.fileName}
                   </a>
                 </td>
-              </tr>`,
+              </tr>`
           )
           .join("")
 
@@ -137,7 +137,7 @@ export const sendBulkTestResultEmail = createServerFn({ method: "POST" })
                 <tr>
                   <td style="background-color:#f0f9ff;border-radius:10px;padding:14px 16px;border-left:3px solid #4a9fe5;">
                     <p style="margin:0;font-size:12px;color:#475569;line-height:1.5;">
-                      Файлууд нь PDF форматтай бөгөөд аюулгүй холбоосоор дамжуулагдсан болно. Асуудал гарвал бидэнтэй холбогдоно уу.
+                      Энэхүү имэйл нь автомат системээс илгээгдэж байгаа тул хариу бичих шаардлагагүй болно.
                     </p>
                   </td>
                 </tr>
@@ -150,9 +150,6 @@ export const sendBulkTestResultEmail = createServerFn({ method: "POST" })
             <td style="padding:20px 32px;border-top:1px solid #e2e8f0;text-align:center;background-color:#fafafa;">
               <p style="margin:0 0 4px;font-size:13px;color:#64748b;font-weight:600;">
                 Хүндэтгэсэн, Эффект Эмнэлэг
-              </p>
-              <p style="margin:0;font-size:11px;color:#94a3b8;">
-                Энэхүү имэйл нь автоматаар илгээгдсэн болно.
               </p>
             </td>
           </tr>
