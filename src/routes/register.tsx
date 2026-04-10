@@ -74,10 +74,10 @@ function RegisterPage() {
         <div className="mb-10 flex items-end justify-between">
           <div className="space-y-1">
             <h2 className="text-3xl font-extrabold tracking-tight text-foreground">
-              Өвчтөн бүртгэх
+              Үйлчлүүлэгч бүртгэх
             </h2>
             <p className="text-sm font-medium text-muted-foreground/70">
-              Шинэ өвчтөний мэдээлэл болон шинжилгээний төрлийг сонгоно уу.
+              Шинэ үйлчлүүлэгчийн мэдээлэл болон шинжилгээний төрлийг сонгоно уу.
             </p>
           </div>
           <div className="text-right">

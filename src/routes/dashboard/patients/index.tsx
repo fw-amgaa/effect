@@ -141,16 +141,16 @@ function PatientsPage() {
       <div className="flex items-end justify-between">
         <div>
           <h2 className="text-3xl font-extrabold tracking-tight text-foreground">
-            Өвчтөнүүд
+            Үйлчлүүлэгчид
           </h2>
           <p className="mt-1 text-sm font-medium text-muted-foreground">
-            Нийт {totalCount} өвчтөн бүртгэлтэй байна.
+            Нийт {totalCount} үйлчлүүлэгч бүртгэлтэй байна.
           </p>
         </div>
         <Link to="/dashboard/patients/new">
           <Button className="gap-2 rounded-xl bg-primary-container px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:opacity-90 active:scale-95">
             <HugeiconsIcon icon={Add01Icon} strokeWidth={2} className="size-[18px]" />
-            Шинэ өвчтөн
+            Шинэ үйлчлүүлэгч
           </Button>
         </Link>
       </div>
@@ -168,7 +168,7 @@ function PatientsPage() {
                 <HugeiconsIcon icon={Search01Icon} strokeWidth={2} className="size-[18px]" />
               </span>
               <Input
-                placeholder="Өвчтөний нэр, утас хайх..."
+                placeholder="Үйлчлүүлэгчийн нэр, утас хайх..."
                 value={searchInput}
                 onChange={(e) => handleSearchChange(e.target.value)}
                 className="h-10 rounded-xl border-outline-variant/15 bg-card pl-10 pr-4 text-sm"
@@ -203,7 +203,7 @@ function PatientsPage() {
         <div className="col-span-12 flex flex-col justify-between overflow-hidden rounded-2xl bg-primary p-6 text-white shadow-xl lg:col-span-4">
           <div>
             <h3 className="mb-1 text-sm font-medium text-white/80">
-              Нийт бүртгэлтэй өвчтөн
+              Нийт бүртгэлтэй үйлчлүүлэгч
             </h3>
             <p className="text-4xl font-black tracking-tighter">
               {totalCount.toLocaleString()}
@@ -249,7 +249,7 @@ function PatientsPage() {
                     colSpan={7}
                     className="px-6 py-16 text-center text-sm text-muted-foreground"
                   >
-                    Өвчтөн олдсонгүй
+                    Үйлчлүүлэгч олдсонгүй
                   </td>
                 </tr>
               ) : (
@@ -321,7 +321,7 @@ function PatientsPage() {
         {patients.total > 0 && (
           <div className="flex items-center justify-between border-t border-outline-variant/10 bg-surface-container-low/30 px-6 py-5">
             <span className="text-xs font-medium text-muted-foreground">
-              Нийт {patients.total} өвчтөнөөс {startIdx}-{endIdx}
+              Нийт {patients.total} үйлчлүүлэгчээс {startIdx}-{endIdx}
             </span>
             <div className="flex items-center gap-1">
               <button

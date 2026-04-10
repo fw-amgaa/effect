@@ -1,21 +1,14 @@
 import { Link, useLocation } from "@tanstack/react-router"
 import { useRouter } from "@tanstack/react-router"
 import { authClient } from "@/lib/auth-client"
-import { ROLE_LABELS } from "@/lib/constants"
 import { HugeiconsIcon } from "@hugeicons/react"
 import {
   UserSearch01Icon,
   UserSettings01Icon,
   Logout03Icon,
+  Analytics01Icon,
 } from "@hugeicons/core-free-icons"
 import type { User } from "@/lib/db/schema"
-import type { Role } from "@/lib/constants"
-
-function getInitials(name: string) {
-  const parts = name.trim().split(/\s+/)
-  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase()
-  return name.slice(0, 2).toUpperCase()
-}
 
 export function AppSidebar({ user }: { user: User }) {
   const location = useLocation()
@@ -23,9 +16,14 @@ export function AppSidebar({ user }: { user: User }) {
 
   const navItems = [
     {
-      title: "Өвчтөнүүд",
+      title: "Үйлчлүүлэгчид",
       url: "/dashboard/patients",
       icon: UserSearch01Icon,
+    },
+    {
+      title: "Шинжилгээний удирдлага",
+      url: "/dashboard/test-types",
+      icon: Analytics01Icon,
     },
     ...(user.role === "admin"
       ? [

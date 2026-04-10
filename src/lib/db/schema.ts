@@ -2,7 +2,7 @@ import {
   pgTable,
   uuid,
   text,
-  integer,
+  real,
   date,
   boolean,
   timestamp,
@@ -65,11 +65,23 @@ export const verification = pgTable("verification", {
 })
 
 // App tables
+export const testTypes = pgTable("test_types", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: text("name").notNull(),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+})
+
 export const patients = pgTable("patients", {
   id: uuid("id").primaryKey().defaultRandom(),
   firstName: text("first_name").notNull(),
   lastName: text("last_name").notNull(),
-  age: integer("age").notNull(),
+  age: real("age").notNull(),
   gender: text("gender", { enum: ["male", "female"] }).notNull(),
   dateOfBirth: date("date_of_birth").notNull(),
   phone: text("phone").notNull(),
@@ -101,6 +113,20 @@ export const patientTests = pgTable("patient_tests", {
     .defaultNow(),
 })
 
+export const testFiles = pgTable("test_files", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  testId: uuid("test_id")
+    .notNull()
+    .references(() => patientTests.id, { onDelete: "cascade" }),
+  fileUrl: text("file_url").notNull(),
+  fileName: text("file_name").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+})
+
 export type User = typeof user.$inferSelect
 export type Patient = typeof patients.$inferSelect
 export type PatientTest = typeof patientTests.$inferSelect
+export type TestFile = typeof testFiles.$inferSelect
+export type TestType = typeof testTypes.$inferSelect

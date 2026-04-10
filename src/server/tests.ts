@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start"
 import { db } from "@/lib/db"
-import { patientTests } from "@/lib/db/schema"
+import { patientTests, testFiles } from "@/lib/db/schema"
 import { eq } from "drizzle-orm"
 import { UTApi } from "uploadthing/server"
 
@@ -22,7 +22,15 @@ export const uploadTestFile = createServerFn({ method: "POST" })
         return { error: response.error.message }
       }
 
-      const [test] = await db
+      // Insert into testFiles table
+      await db.insert(testFiles).values({
+        testId,
+        fileUrl: response.data.ufsUrl,
+        fileName: file.name,
+      })
+
+      // Also update legacy columns and mark complete
+      await db
         .update(patientTests)
         .set({
           fileUrl: response.data.ufsUrl,
@@ -31,9 +39,8 @@ export const uploadTestFile = createServerFn({ method: "POST" })
           updatedAt: new Date(),
         })
         .where(eq(patientTests.id, testId))
-        .returning()
 
-      return { error: null, test }
+      return { error: null }
     } catch (e) {
       return {
         error: e instanceof Error ? e.message : "Файл хуулахад алдаа гарлаа",
@@ -41,24 +48,31 @@ export const uploadTestFile = createServerFn({ method: "POST" })
     }
   })
 
-export const updateTestFile = createServerFn({ method: "POST" })
-  .inputValidator(
-    (data: { testId: string; fileUrl: string; fileName: string }) => data,
-  )
+export const deleteTestFile = createServerFn({ method: "POST" })
+  .inputValidator((data: { fileId: string; testId: string }) => data)
   .handler(async ({ data }) => {
-    const [test] = await db
-      .update(patientTests)
-      .set({
-        fileUrl: data.fileUrl,
-        fileName: data.fileName,
-        status: "complete",
-        updatedAt: new Date(),
-      })
-      .where(eq(patientTests.id, data.testId))
-      .returning()
-    return test
-  },
-)
+    await db.delete(testFiles).where(eq(testFiles.id, data.fileId))
+
+    // Check if any files remain for this test
+    const remaining = await db
+      .select()
+      .from(testFiles)
+      .where(eq(testFiles.testId, data.testId))
+
+    if (remaining.length === 0) {
+      await db
+        .update(patientTests)
+        .set({
+          fileUrl: null,
+          fileName: null,
+          status: "pending",
+          updatedAt: new Date(),
+        })
+        .where(eq(patientTests.id, data.testId))
+    }
+
+    return { success: true }
+  })
 
 export const addTestToPatient = createServerFn({ method: "POST" })
   .inputValidator((data: { patientId: string; testType: string }) => data)
@@ -94,5 +108,4 @@ export const deleteTest = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     await db.delete(patientTests).where(eq(patientTests.id, data.testId))
     return { success: true }
-  },
-)
+  })

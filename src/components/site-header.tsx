@@ -2,9 +2,10 @@ import { useLocation } from "@tanstack/react-router"
 import type { User } from "@/lib/db/schema"
 
 const BREADCRUMB_MAP: Record<string, string> = {
-  "/dashboard/patients": "Өвчтөнүүд",
-  "/dashboard/patients/new": "Шинэ өвчтөн",
+  "/dashboard/patients": "Үйлчлүүлэгчид",
+  "/dashboard/patients/new": "Шинэ үйлчлүүлэгч",
   "/dashboard/roles": "Хэрэглэгч удирдах",
+  "/dashboard/test-types": "Шинжилгээний удирдлага",
 }
 
 export function SiteHeader({ user }: { user: User }) {
@@ -12,7 +13,7 @@ export function SiteHeader({ user }: { user: User }) {
   const pathname = location.pathname
 
   // Build breadcrumb
-  let breadcrumbLabel = "Өвчтөнүүд"
+  let breadcrumbLabel = "Үйлчлүүлэгчид"
   let isDetail = false
 
   if (BREADCRUMB_MAP[pathname]) {
@@ -27,7 +28,7 @@ export function SiteHeader({ user }: { user: User }) {
       <nav className="flex items-center gap-2 text-sm font-medium">
         {isDetail && (
           <>
-            <span className="text-muted-foreground/50">Өвчтөнүүд</span>
+            <span className="text-muted-foreground/50">Үйлчлүүлэгчид</span>
             <span className="text-xs text-muted-foreground/30">/</span>
           </>
         )}

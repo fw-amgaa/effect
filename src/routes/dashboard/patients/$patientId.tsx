@@ -1,8 +1,9 @@
 import { createFileRoute, useRouter, Link } from "@tanstack/react-router"
 import { useState } from "react"
 import { getPatient, updatePatient } from "@/server/patients"
-import { uploadTestFile, addTestsToPatient, deleteTest } from "@/server/tests"
-import { sendTestResultEmail } from "@/server/email"
+import { uploadTestFile, addTestsToPatient, deleteTest, deleteTestFile } from "@/server/tests"
+import { sendBulkTestResultEmail } from "@/server/email"
+import { getActiveTestTypes } from "@/server/test-types"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
@@ -37,7 +38,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { toast } from "sonner"
-import { TEST_TYPES, GENDER_OPTIONS } from "@/lib/constants"
+import { GENDER_OPTIONS } from "@/lib/constants"
 import { HugeiconsIcon } from "@hugeicons/react"
 import {
   PencilEdit01Icon,
@@ -49,12 +50,29 @@ import {
   File01Icon,
   Analytics01Icon,
   Loading03Icon,
+  Cancel01Icon,
 } from "@hugeicons/core-free-icons"
-import type { Patient, PatientTest } from "@/lib/db/schema"
+import type { Patient, PatientTest, TestFile, TestType } from "@/lib/db/schema"
+
+type PatientTestWithFiles = PatientTest & { files: TestFile[] }
+
+function calculateAge(dob: string): number {
+  const birth = new Date(dob)
+  const now = new Date()
+  const diffMs = now.getTime() - birth.getTime()
+  const age = diffMs / (1000 * 60 * 60 * 24 * 365.25)
+  return Math.round(age * 10) / 10
+}
 
 export const Route = createFileRoute("/dashboard/patients/$patientId")({
   component: PatientDetailPage,
-  loader: ({ params }) => getPatient({ data: { id: params.patientId } }),
+  loader: async ({ params }) => {
+    const [patient, activeTestTypes] = await Promise.all([
+      getPatient({ data: { id: params.patientId } }),
+      getActiveTestTypes(),
+    ])
+    return { patient, activeTestTypes }
+  },
   staleTime: 15_000,
   pendingComponent: PatientDetailLoading,
   pendingMinMs: 200,
@@ -98,15 +116,16 @@ function PatientDetailLoading() {
 }
 
 function PatientDetailPage() {
-  const data = Route.useLoaderData() as
-    | (Patient & { tests: PatientTest[] })
-    | null
+  const { patient: data, activeTestTypes } = Route.useLoaderData() as {
+    patient: (Patient & { tests: PatientTestWithFiles[] }) | null
+    activeTestTypes: TestType[]
+  }
   const router = useRouter()
 
   if (!data) {
     return (
       <div className="flex flex-col items-center justify-center py-16 gap-4">
-        <p className="text-muted-foreground">Өвчтөн олдсонгүй</p>
+        <p className="text-muted-foreground">Үйлчлүүлэгч олдсонгүй</p>
         <Link to="/dashboard/patients">
           <Button variant="outline">Буцах</Button>
         </Link>
@@ -127,7 +146,12 @@ function PatientDetailPage() {
       />
 
       {/* Bottom action cards */}
-      <AddTestCard patientId={data.id} existingTests={data.tests} onAdded={() => router.invalidate()} />
+      <AddTestCard
+        patientId={data.id}
+        existingTests={data.tests}
+        activeTestTypes={activeTestTypes}
+        onAdded={() => router.invalidate()}
+      />
     </div>
   )
 }
@@ -224,6 +248,17 @@ function PatientEditForm({
   const [loading, setLoading] = useState(false)
   const [gender, setGender] = useState(patient.gender)
   const [dateOfBirth, setDateOfBirth] = useState(patient.dateOfBirth)
+  const [age, setAge] = useState(String(patient.age))
+
+  function handleDateOfBirthChange(value: string) {
+    setDateOfBirth(value)
+    if (value && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+      const calculated = calculateAge(value)
+      if (calculated >= 0 && calculated <= 150) {
+        setAge(String(calculated))
+      }
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -235,7 +270,7 @@ function PatientEditForm({
           id: patient.id,
           firstName: fd.get("firstName") as string,
           lastName: fd.get("lastName") as string,
-          age: Number(fd.get("age")),
+          age: Number(age),
           gender: gender as "male" | "female",
           dateOfBirth,
           phone: fd.get("phone") as string,
@@ -266,37 +301,37 @@ function PatientEditForm({
         </div>
         <div className="grid grid-cols-2 gap-4">
           <Field>
-            <FieldLabel htmlFor="age">Нас</FieldLabel>
-            <Input id="age" name="age" type="number" defaultValue={patient.age} required className="rounded-xl" />
+            <FieldLabel>Төрсөн огноо</FieldLabel>
+            <DatePicker
+              value={dateOfBirth}
+              onChange={handleDateOfBirthChange}
+              placeholder="2000-01-15"
+              required
+            />
           </Field>
           <Field>
-            <FieldLabel>Хүйс</FieldLabel>
-            <Select
-              value={gender}
-              onValueChange={(v) => v && setGender(v as "male" | "female")}
-              items={{ male: "Эрэгтэй", female: "Эмэгтэй" }}
-            >
-              <SelectTrigger className="rounded-xl">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {GENDER_OPTIONS.map((opt) => (
-                  <SelectItem key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <FieldLabel htmlFor="age">Нас</FieldLabel>
+            <Input id="age" value={age} readOnly tabIndex={-1} className="rounded-xl bg-card/50 text-muted-foreground" />
           </Field>
         </div>
         <Field>
-          <FieldLabel>Төрсөн огноо</FieldLabel>
-          <DatePicker
-            value={dateOfBirth}
-            onChange={setDateOfBirth}
-            placeholder="Огноо сонгох"
-            required
-          />
+          <FieldLabel>Хүйс</FieldLabel>
+          <Select
+            value={gender}
+            onValueChange={(v) => v && setGender(v as "male" | "female")}
+            items={{ male: "Эрэгтэй", female: "Эмэгтэй" }}
+          >
+            <SelectTrigger className="rounded-xl">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {GENDER_OPTIONS.map((opt) => (
+                <SelectItem key={opt.value} value={opt.value}>
+                  {opt.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </Field>
         <div className="grid grid-cols-2 gap-4">
           <Field>
@@ -327,9 +362,59 @@ function TestsSection({
   onUpdated,
 }: {
   patient: Patient
-  tests: PatientTest[]
+  tests: PatientTestWithFiles[]
   onUpdated: () => void
 }) {
+  const [selectedTestIds, setSelectedTestIds] = useState<Set<string>>(new Set())
+  const [sending, setSending] = useState(false)
+
+  // Only tests with files can be emailed
+  const emailableTests = tests.filter((t) => t.files.length > 0)
+  const allEmailableSelected =
+    emailableTests.length > 0 &&
+    emailableTests.every((t) => selectedTestIds.has(t.id))
+
+  function toggleTest(id: string) {
+    setSelectedTestIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  function toggleAll() {
+    if (allEmailableSelected) {
+      setSelectedTestIds(new Set())
+    } else {
+      setSelectedTestIds(new Set(emailableTests.map((t) => t.id)))
+    }
+  }
+
+  async function handleBulkEmail() {
+    if (selectedTestIds.size === 0) return
+    setSending(true)
+    try {
+      const result = await sendBulkTestResultEmail({
+        data: {
+          testIds: Array.from(selectedTestIds),
+          patientId: patient.id,
+        },
+      })
+      if (result.error) {
+        toast.error(result.error)
+      } else {
+        toast.success(`${selectedTestIds.size} шинжилгээний хариу имэйлээр илгээгдлээ`)
+        setSelectedTestIds(new Set())
+        onUpdated()
+      }
+    } catch {
+      toast.error("Имэйл илгээхэд алдаа гарлаа")
+    } finally {
+      setSending(false)
+    }
+  }
+
   return (
     <section className="space-y-4">
       <div className="flex items-center justify-between">
@@ -337,9 +422,32 @@ function TestsSection({
           <HugeiconsIcon icon={Analytics01Icon} strokeWidth={2} className="size-5 text-primary" />
           Шинжилгээний үр дүн
         </h3>
-        <span className="text-sm font-semibold text-muted-foreground">
-          Нийт {tests.length}
-        </span>
+        <div className="flex items-center gap-3">
+          {selectedTestIds.size > 0 && patient.email && (
+            <Button
+              onClick={handleBulkEmail}
+              disabled={sending}
+              className="gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-white shadow-sm"
+            >
+              {sending ? (
+                <HugeiconsIcon icon={Loading03Icon} strokeWidth={2} className="size-4 animate-spin" />
+              ) : (
+                <HugeiconsIcon icon={SentIcon} strokeWidth={2} className="size-4" />
+              )}
+              {sending
+                ? "Илгээж байна..."
+                : `${selectedTestIds.size} шинжилгээ имэйлээр илгээх`}
+            </Button>
+          )}
+          {selectedTestIds.size > 0 && !patient.email && (
+            <span className="text-xs font-medium text-amber-600">
+              Имэйл хаяг бүртгэгдээгүй
+            </span>
+          )}
+          <span className="text-sm font-semibold text-muted-foreground">
+            Нийт {tests.length}
+          </span>
+        </div>
       </div>
 
       <div className="ghost-border overflow-hidden rounded-xl bg-card shadow-sm">
@@ -352,7 +460,14 @@ function TestsSection({
           <table className="w-full border-collapse text-left">
             <thead>
               <tr className="border-b border-outline-variant/10 bg-surface-container-low/50">
-                <th className="w-12 px-6 py-4 text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">
+                <th className="w-10 px-4 py-4">
+                  <Checkbox
+                    checked={allEmailableSelected}
+                    onCheckedChange={toggleAll}
+                    className="size-4"
+                  />
+                </th>
+                <th className="w-12 px-2 py-4 text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">
                   #
                 </th>
                 <th className="px-6 py-4 text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">
@@ -362,7 +477,7 @@ function TestsSection({
                   Төлөв
                 </th>
                 <th className="px-6 py-4 text-center text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">
-                  Файл
+                  Файлууд
                 </th>
                 <th className="px-6 py-4 text-center text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">
                   Имэйл
@@ -378,7 +493,8 @@ function TestsSection({
                   key={test.id}
                   index={idx + 1}
                   test={test}
-                  patientEmail={patient.email}
+                  selected={selectedTestIds.has(test.id)}
+                  onToggleSelect={() => toggleTest(test.id)}
                   onUpdated={onUpdated}
                 />
               ))}
@@ -393,54 +509,54 @@ function TestsSection({
 function TestRow({
   test,
   index,
-  patientEmail,
+  selected,
+  onToggleSelect,
   onUpdated,
 }: {
-  test: PatientTest
+  test: PatientTestWithFiles
   index: number
-  patientEmail: string | null
+  selected: boolean
+  onToggleSelect: () => void
   onUpdated: () => void
 }) {
   const [uploading, setUploading] = useState(false)
-  const [sending, setSending] = useState(false)
   const [deleting, setDeleting] = useState(false)
 
+  const canSelect = test.files.length > 0
+
   async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (!file) return
+    const files = e.target.files
+    if (!files || files.length === 0) return
     setUploading(true)
     try {
-      const formData = new FormData()
-      formData.append("file", file)
-      formData.append("testId", test.id)
-      const result = await uploadTestFile({ data: formData })
-      if (result.error) {
-        toast.error(result.error)
-      } else {
-        toast.success("Файл амжилттай хуулагдлаа")
-        onUpdated()
+      for (const file of Array.from(files)) {
+        const formData = new FormData()
+        formData.append("file", file)
+        formData.append("testId", test.id)
+        const result = await uploadTestFile({ data: formData })
+        if (result.error) {
+          toast.error(result.error)
+          break
+        }
       }
+      toast.success("Файл амжилттай хуулагдлаа")
+      onUpdated()
     } catch {
       toast.error("Файл хуулахад алдаа гарлаа")
     } finally {
       setUploading(false)
+      // Reset input
+      e.target.value = ""
     }
   }
 
-  async function handleSendEmail() {
-    setSending(true)
+  async function handleDeleteFile(fileId: string) {
     try {
-      const result = await sendTestResultEmail({ data: { testId: test.id } })
-      if (result.error) {
-        toast.error(result.error)
-      } else {
-        toast.success("Имэйл амжилттай илгээгдлээ")
-        onUpdated()
-      }
+      await deleteTestFile({ data: { fileId, testId: test.id } })
+      toast.success("Файл устгагдлаа")
+      onUpdated()
     } catch {
-      toast.error("Имэйл илгээхэд алдаа гарлаа")
-    } finally {
-      setSending(false)
+      toast.error("Алдаа гарлаа")
     }
   }
 
@@ -459,7 +575,15 @@ function TestRow({
 
   return (
     <tr className="group transition-colors hover:bg-surface-container-low">
-      <td className="px-6 py-5 text-sm font-medium text-muted-foreground/50">
+      <td className="px-4 py-5">
+        <Checkbox
+          checked={selected}
+          onCheckedChange={onToggleSelect}
+          disabled={!canSelect}
+          className="size-4"
+        />
+      </td>
+      <td className="px-2 py-5 text-sm font-medium text-muted-foreground/50">
         {String(index).padStart(2, "0")}
       </td>
       <td className="px-6 py-5">
@@ -476,21 +600,37 @@ function TestRow({
           </span>
         )}
       </td>
-      <td className="px-6 py-5 text-center">
-        {test.fileUrl ? (
-          <a
-            href={test.fileUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex items-center gap-1 text-[11px] font-bold text-[#1960a3] underline decoration-dotted transition-colors hover:text-primary"
-          >
-            <HugeiconsIcon icon={File01Icon} strokeWidth={2} className="size-5" />
-            PDF
-          </a>
+      <td className="px-6 py-5">
+        {test.files.length > 0 ? (
+          <div className="flex flex-col gap-1.5">
+            {test.files.map((file) => (
+              <div key={file.id} className="flex items-center justify-center gap-2">
+                <a
+                  href={file.fileUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1 text-[11px] font-bold text-[#1960a3] underline decoration-dotted transition-colors hover:text-primary"
+                  title={file.fileName}
+                >
+                  <HugeiconsIcon icon={File01Icon} strokeWidth={2} className="size-4" />
+                  <span className="max-w-[120px] truncate">{file.fileName}</span>
+                </a>
+                <button
+                  onClick={() => handleDeleteFile(file.id)}
+                  className="text-muted-foreground/30 hover:text-destructive transition-colors"
+                  title="Файл устгах"
+                >
+                  <HugeiconsIcon icon={Cancel01Icon} strokeWidth={2} className="size-3.5" />
+                </button>
+              </div>
+            ))}
+          </div>
         ) : (
-          <span className="text-muted-foreground/30">
-            <HugeiconsIcon icon={File01Icon} strokeWidth={1.5} className="mx-auto size-5" />
-          </span>
+          <div className="flex justify-center">
+            <span className="text-muted-foreground/30">
+              <HugeiconsIcon icon={File01Icon} strokeWidth={1.5} className="size-5" />
+            </span>
+          </div>
         )}
       </td>
       <td className="px-6 py-5 text-center">
@@ -518,30 +658,12 @@ function TestRow({
             <input
               type="file"
               className="hidden"
+              multiple
+              accept=".pdf"
               onChange={handleFileUpload}
               disabled={uploading}
             />
           </label>
-
-          {/* Send email */}
-          {test.fileUrl && patientEmail ? (
-            <button
-              onClick={handleSendEmail}
-              disabled={sending}
-              className="inline-flex size-8 items-center justify-center rounded-lg text-primary transition-colors hover:bg-surface-container-high disabled:opacity-50"
-              title="Имэйл илгээх"
-            >
-              {sending ? (
-                <HugeiconsIcon icon={Loading03Icon} strokeWidth={2} className="size-5 animate-spin" />
-              ) : (
-                <HugeiconsIcon icon={SentIcon} strokeWidth={2} className="size-5" />
-              )}
-            </button>
-          ) : (
-            <span className="inline-flex size-8 items-center justify-center text-muted-foreground/20">
-              <HugeiconsIcon icon={SentIcon} strokeWidth={2} className="size-5" />
-            </span>
-          )}
 
           {/* Delete */}
           <AlertDialog>
@@ -580,22 +702,24 @@ function TestRow({
 function AddTestCard({
   patientId,
   existingTests,
+  activeTestTypes,
   onAdded,
 }: {
   patientId: string
-  existingTests: PatientTest[]
+  existingTests: PatientTestWithFiles[]
+  activeTestTypes: TestType[]
   onAdded: () => void
 }) {
   const [selectedTests, setSelectedTests] = useState<string[]>([])
   const [adding, setAdding] = useState(false)
 
-  const existingTestTypes = new Set(existingTests.map((t) => t.testType))
+  const existingTestTypeNames = new Set(existingTests.map((t) => t.testType))
 
-  function toggleTest(test: string) {
+  function toggleTest(testName: string) {
     setSelectedTests((prev) =>
-      prev.includes(test)
-        ? prev.filter((t) => t !== test)
-        : [...prev, test],
+      prev.includes(testName)
+        ? prev.filter((t) => t !== testName)
+        : [...prev, testName],
     )
   }
 
@@ -622,46 +746,52 @@ function AddTestCard({
           <h3 className="text-lg font-bold text-foreground">Шинэ шинжилгээ нэмэх</h3>
         </div>
         <span className="rounded-full bg-surface-container-high px-3 py-1 text-[10px] font-bold uppercase text-muted-foreground">
-          Нийт {TEST_TYPES.length} төрөл
+          Нийт {activeTestTypes.length} төрөл
           {selectedTests.length > 0 && (
             <> &middot; {selectedTests.length} сонгосон</>
           )}
         </span>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-        {TEST_TYPES.map((test) => {
-          const isChecked = selectedTests.includes(test)
-          const alreadyExists = existingTestTypes.has(test)
-          return (
-            <label
-              key={test}
-              className={`group relative flex cursor-pointer items-center gap-4 rounded-2xl border p-4 shadow-sm transition-all ${
-                alreadyExists
-                  ? "cursor-default border-transparent bg-card opacity-50"
-                  : isChecked
-                    ? "border-primary-container/50 bg-card"
-                    : "border-transparent bg-card hover:border-primary-container/30"
-              }`}
-            >
-              <Checkbox
-                checked={isChecked}
-                onCheckedChange={() => !alreadyExists && toggleTest(test)}
-                disabled={alreadyExists}
-                className="size-5"
-              />
-              <span className="text-sm font-semibold text-foreground transition-colors group-hover:text-primary">
-                {test}
-              </span>
-              {alreadyExists && (
-                <span className="ml-auto text-[10px] font-bold uppercase text-muted-foreground/50">
-                  Нэмсэн
+      {activeTestTypes.length === 0 ? (
+        <p className="text-sm text-muted-foreground py-8 text-center">
+          Идэвхтэй шинжилгээний төрөл бүртгэгдээгүй байна. Шинжилгээний удирдлага хэсгээс нэмнэ үү.
+        </p>
+      ) : (
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+          {activeTestTypes.map((testType) => {
+            const isChecked = selectedTests.includes(testType.name)
+            const alreadyExists = existingTestTypeNames.has(testType.name)
+            return (
+              <label
+                key={testType.id}
+                className={`group relative flex cursor-pointer items-center gap-4 rounded-2xl border p-4 shadow-sm transition-all ${
+                  alreadyExists
+                    ? "cursor-default border-transparent bg-card opacity-50"
+                    : isChecked
+                      ? "border-primary-container/50 bg-card"
+                      : "border-transparent bg-card hover:border-primary-container/30"
+                }`}
+              >
+                <Checkbox
+                  checked={isChecked}
+                  onCheckedChange={() => !alreadyExists && toggleTest(testType.name)}
+                  disabled={alreadyExists}
+                  className="size-5"
+                />
+                <span className="text-sm font-semibold text-foreground transition-colors group-hover:text-primary">
+                  {testType.name}
                 </span>
-              )}
-            </label>
-          )
-        })}
-      </div>
+                {alreadyExists && (
+                  <span className="ml-auto text-[10px] font-bold uppercase text-muted-foreground/50">
+                    Нэмсэн
+                  </span>
+                )}
+              </label>
+            )
+          })}
+        </div>
+      )}
 
       {selectedTests.length > 0 && (
         <div className="flex justify-end gap-3 border-t border-outline-variant/10 pt-5">

@@ -21,6 +21,14 @@ import {
 } from "@hugeicons/core-free-icons"
 import type { User } from "@/lib/db/schema"
 
+function calculateAge(dob: string): number {
+  const birth = new Date(dob)
+  const now = new Date()
+  const diffMs = now.getTime() - birth.getTime()
+  const age = diffMs / (1000 * 60 * 60 * 24 * 365.25)
+  return Math.round(age * 10) / 10
+}
+
 interface PatientFormProps {
   user: User | null
   onSuccess?: () => void
@@ -30,11 +38,23 @@ export function PatientForm({ user, onSuccess }: PatientFormProps) {
   const [loading, setLoading] = useState(false)
   const [gender, setGender] = useState("")
   const [dateOfBirth, setDateOfBirth] = useState("")
+  const [age, setAge] = useState("")
+
+  function handleDateOfBirthChange(value: string) {
+    setDateOfBirth(value)
+    if (value && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+      const calculated = calculateAge(value)
+      if (calculated >= 0 && calculated <= 150) {
+        setAge(String(calculated))
+      }
+    }
+  }
 
   function resetForm(form: HTMLFormElement) {
     form.reset()
     setGender("")
     setDateOfBirth("")
+    setAge("")
   }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -49,7 +69,7 @@ export function PatientForm({ user, onSuccess }: PatientFormProps) {
         data: {
           lastName: formData.get("lastName") as string,
           firstName: formData.get("firstName") as string,
-          age: Number(formData.get("age")),
+          age: Number(age),
           gender: gender as "male" | "female",
           dateOfBirth,
           phone: formData.get("phone") as string,
@@ -57,7 +77,7 @@ export function PatientForm({ user, onSuccess }: PatientFormProps) {
           createdBy: user?.id,
         },
       })
-      toast.success("Өвчтөн амжилттай бүртгэгдлээ")
+      toast.success("Үйлчлүүлэгч амжилттай бүртгэгдлээ")
       resetForm(form)
       onSuccess?.()
     } catch {
@@ -107,19 +127,30 @@ export function PatientForm({ user, onSuccess }: PatientFormProps) {
             />
           </div>
 
-          {/* Age */}
+          {/* Date of birth */}
+          <div className="space-y-2">
+            <label className="ml-1 block text-[11px] font-bold uppercase text-muted-foreground/80">
+              Төрсөн огноо
+            </label>
+            <DatePicker
+              value={dateOfBirth}
+              onChange={handleDateOfBirthChange}
+              placeholder="2000-01-15"
+              required
+            />
+          </div>
+
+          {/* Age (auto-calculated) */}
           <div className="space-y-2">
             <label className="ml-1 block text-[11px] font-bold uppercase text-muted-foreground/80">
               Нас
             </label>
             <Input
-              name="age"
-              type="number"
-              min={0}
-              max={150}
-              placeholder="Нас"
-              required
-              className="h-11 rounded-xl border-outline-variant/30 bg-card px-4 text-sm"
+              value={age}
+              readOnly
+              tabIndex={-1}
+              placeholder="Төрсөн огноогоор"
+              className="h-11 rounded-xl border-outline-variant/30 bg-card/50 px-4 text-sm text-muted-foreground"
             />
           </div>
 
@@ -146,19 +177,6 @@ export function PatientForm({ user, onSuccess }: PatientFormProps) {
               </SelectContent>
             </Select>
             <input type="hidden" name="gender" value={gender} />
-          </div>
-
-          {/* Date of birth */}
-          <div className="space-y-2">
-            <label className="ml-1 block text-[11px] font-bold uppercase text-muted-foreground/80">
-              Төрсөн огноо
-            </label>
-            <DatePicker
-              value={dateOfBirth}
-              onChange={setDateOfBirth}
-              placeholder="Огноо сонгох"
-              required
-            />
           </div>
 
           {/* Phone */}

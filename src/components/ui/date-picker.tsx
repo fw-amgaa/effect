@@ -1,5 +1,5 @@
 import * as React from "react"
-import { format, parse } from "date-fns"
+import { format, parse, isValid } from "date-fns"
 import { mn } from "date-fns/locale"
 import { CalendarDays } from "lucide-react"
 
@@ -29,50 +29,97 @@ function DatePicker({
   name,
 }: DatePickerProps) {
   const [open, setOpen] = React.useState(false)
+  const [inputValue, setInputValue] = React.useState(value || "")
+
+  React.useEffect(() => {
+    setInputValue(value || "")
+  }, [value])
 
   const date = value ? parse(value, "yyyy-MM-dd", new Date()) : undefined
 
   function handleSelect(day: Date | undefined) {
     if (day) {
-      onChange?.(format(day, "yyyy-MM-dd"))
+      const formatted = format(day, "yyyy-MM-dd")
+      onChange?.(formatted)
+      setInputValue(formatted)
       setOpen(false)
     }
+  }
+
+  function autoFormatDate(raw: string): string {
+    // Strip everything except digits
+    const digits = raw.replace(/\D/g, "").slice(0, 8)
+    if (digits.length <= 4) return digits
+    if (digits.length <= 6) return `${digits.slice(0, 4)}-${digits.slice(4)}`
+    return `${digits.slice(0, 4)}-${digits.slice(4, 6)}-${digits.slice(6)}`
+  }
+
+  function handleInputChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const formatted = autoFormatDate(e.target.value)
+    setInputValue(formatted)
+
+    // Commit when we have a full valid date
+    if (/^\d{4}-\d{2}-\d{2}$/.test(formatted)) {
+      const parsed = parse(formatted, "yyyy-MM-dd", new Date())
+      if (isValid(parsed) && parsed.getFullYear() >= 1930 && parsed <= new Date()) {
+        onChange?.(formatted)
+      }
+    }
+  }
+
+  function handleInputBlur() {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(inputValue)) {
+      const parsed = parse(inputValue, "yyyy-MM-dd", new Date())
+      if (isValid(parsed) && parsed.getFullYear() >= 1930 && parsed <= new Date()) {
+        onChange?.(inputValue)
+        return
+      }
+    }
+    // Revert to last valid value
+    setInputValue(value || "")
   }
 
   return (
     <>
       {name && <input type="hidden" name={name} value={value || ""} required={required} />}
-      <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger
-          render={
-            <button
-              type="button"
-              className={cn(
-                "flex h-11 w-full items-center gap-3 rounded-xl border border-outline-variant/30 bg-card px-4 text-left text-sm transition-colors hover:bg-surface-container-low focus:outline-none focus:ring-2 focus:ring-ring/30",
-                !value && "text-muted-foreground/50",
-                className
-              )}
-            >
-              <CalendarDays className="size-4 shrink-0 text-muted-foreground/40" />
-              <span className="flex-1 truncate">
-                {date ? format(date, "yyyy-MM-dd") : placeholder}
-              </span>
-            </button>
-          }
+      <div className={cn("relative flex items-center", className)}>
+        <input
+          type="text"
+          value={inputValue}
+          onChange={handleInputChange}
+          onBlur={handleInputBlur}
+          placeholder={placeholder}
+          required={required}
+          className={cn(
+            "flex h-11 w-full items-center rounded-xl border border-outline-variant/30 bg-card pl-4 pr-11 text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-ring/30",
+            !inputValue && "text-muted-foreground/50"
+          )}
         />
-        <PopoverContent className="w-auto p-0" align="start">
-          <Calendar
-            mode="single"
-            selected={date}
-            onSelect={handleSelect}
-            captionLayout="dropdown"
-            startMonth={new Date(1930, 0)}
-            endMonth={new Date()}
-            defaultMonth={date || new Date(2000, 0)}
-            locale={mn}
+        <Popover open={open} onOpenChange={setOpen}>
+          <PopoverTrigger
+            render={
+              <button
+                type="button"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground/40 hover:text-muted-foreground transition-colors"
+              >
+                <CalendarDays className="size-4" />
+              </button>
+            }
           />
-        </PopoverContent>
-      </Popover>
+          <PopoverContent className="w-auto p-0" align="end">
+            <Calendar
+              mode="single"
+              selected={date}
+              onSelect={handleSelect}
+              captionLayout="dropdown"
+              startMonth={new Date(1930, 0)}
+              endMonth={new Date()}
+              defaultMonth={date || new Date(2000, 0)}
+              locale={mn}
+            />
+          </PopoverContent>
+        </Popover>
+      </div>
     </>
   )
 }

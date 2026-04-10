@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start"
 import { db } from "@/lib/db"
-import { patients, patientTests } from "@/lib/db/schema"
-import { eq, desc, ilike, or, and, sql } from "drizzle-orm"
+import { patients, patientTests, testFiles } from "@/lib/db/schema"
+import { eq, desc, ilike, or, and, sql, inArray } from "drizzle-orm"
 
 export const getPatients = createServerFn({ method: "GET" })
   .inputValidator(
@@ -75,7 +75,22 @@ export const getPatient = createServerFn({ method: "GET" })
       .where(eq(patientTests.patientId, data.id))
       .orderBy(patientTests.createdAt)
 
-    return { ...patient, tests }
+    // Fetch files for all tests
+    const testIds = tests.map((t) => t.id)
+    const files =
+      testIds.length > 0
+        ? await db
+            .select()
+            .from(testFiles)
+            .where(inArray(testFiles.testId, testIds))
+        : []
+
+    const testsWithFiles = tests.map((test) => ({
+      ...test,
+      files: files.filter((f) => f.testId === test.id),
+    }))
+
+    return { ...patient, tests: testsWithFiles }
   })
 
 export const createPatient = createServerFn({ method: "POST" })

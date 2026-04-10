@@ -16,6 +16,7 @@ import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as DashboardIndexRouteImport } from './routes/dashboard/index'
+import { Route as DashboardTestTypesRouteImport } from './routes/dashboard/test-types'
 import { Route as DashboardRolesRouteImport } from './routes/dashboard/roles'
 import { Route as DashboardPatientsIndexRouteImport } from './routes/dashboard/patients/index'
 import { Route as DashboardPatientsNewRouteImport } from './routes/dashboard/patients/new'
@@ -56,6 +57,11 @@ const DashboardIndexRoute = DashboardIndexRouteImport.update({
   path: '/',
   getParentRoute: () => DashboardRoute,
 } as any)
+const DashboardTestTypesRoute = DashboardTestTypesRouteImport.update({
+  id: '/test-types',
+  path: '/test-types',
+  getParentRoute: () => DashboardRoute,
+} as any)
 const DashboardRolesRoute = DashboardRolesRouteImport.update({
   id: '/roles',
   path: '/roles',
@@ -86,6 +92,7 @@ export interface FileRoutesByFullPath {
   '/register': typeof RegisterRoute
   '/reset-password': typeof ResetPasswordRoute
   '/dashboard/roles': typeof DashboardRolesRoute
+  '/dashboard/test-types': typeof DashboardTestTypesRoute
   '/dashboard/': typeof DashboardIndexRoute
   '/dashboard/patients/$patientId': typeof DashboardPatientsPatientIdRoute
   '/dashboard/patients/new': typeof DashboardPatientsNewRoute
@@ -98,6 +105,7 @@ export interface FileRoutesByTo {
   '/register': typeof RegisterRoute
   '/reset-password': typeof ResetPasswordRoute
   '/dashboard/roles': typeof DashboardRolesRoute
+  '/dashboard/test-types': typeof DashboardTestTypesRoute
   '/dashboard': typeof DashboardIndexRoute
   '/dashboard/patients/$patientId': typeof DashboardPatientsPatientIdRoute
   '/dashboard/patients/new': typeof DashboardPatientsNewRoute
@@ -112,6 +120,7 @@ export interface FileRoutesById {
   '/register': typeof RegisterRoute
   '/reset-password': typeof ResetPasswordRoute
   '/dashboard/roles': typeof DashboardRolesRoute
+  '/dashboard/test-types': typeof DashboardTestTypesRoute
   '/dashboard/': typeof DashboardIndexRoute
   '/dashboard/patients/$patientId': typeof DashboardPatientsPatientIdRoute
   '/dashboard/patients/new': typeof DashboardPatientsNewRoute
@@ -127,6 +136,7 @@ export interface FileRouteTypes {
     | '/register'
     | '/reset-password'
     | '/dashboard/roles'
+    | '/dashboard/test-types'
     | '/dashboard/'
     | '/dashboard/patients/$patientId'
     | '/dashboard/patients/new'
@@ -139,6 +149,7 @@ export interface FileRouteTypes {
     | '/register'
     | '/reset-password'
     | '/dashboard/roles'
+    | '/dashboard/test-types'
     | '/dashboard'
     | '/dashboard/patients/$patientId'
     | '/dashboard/patients/new'
@@ -152,6 +163,7 @@ export interface FileRouteTypes {
     | '/register'
     | '/reset-password'
     | '/dashboard/roles'
+    | '/dashboard/test-types'
     | '/dashboard/'
     | '/dashboard/patients/$patientId'
     | '/dashboard/patients/new'
@@ -218,6 +230,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardIndexRouteImport
       parentRoute: typeof DashboardRoute
     }
+    '/dashboard/test-types': {
+      id: '/dashboard/test-types'
+      path: '/test-types'
+      fullPath: '/dashboard/test-types'
+      preLoaderRoute: typeof DashboardTestTypesRouteImport
+      parentRoute: typeof DashboardRoute
+    }
     '/dashboard/roles': {
       id: '/dashboard/roles'
       path: '/roles'
@@ -251,6 +270,7 @@ declare module '@tanstack/react-router' {
 
 interface DashboardRouteChildren {
   DashboardRolesRoute: typeof DashboardRolesRoute
+  DashboardTestTypesRoute: typeof DashboardTestTypesRoute
   DashboardIndexRoute: typeof DashboardIndexRoute
   DashboardPatientsPatientIdRoute: typeof DashboardPatientsPatientIdRoute
   DashboardPatientsNewRoute: typeof DashboardPatientsNewRoute
@@ -259,6 +279,7 @@ interface DashboardRouteChildren {
 
 const DashboardRouteChildren: DashboardRouteChildren = {
   DashboardRolesRoute: DashboardRolesRoute,
+  DashboardTestTypesRoute: DashboardTestTypesRoute,
   DashboardIndexRoute: DashboardIndexRoute,
   DashboardPatientsPatientIdRoute: DashboardPatientsPatientIdRoute,
   DashboardPatientsNewRoute: DashboardPatientsNewRoute,
