@@ -6,6 +6,7 @@ import {
   date,
   boolean,
   timestamp,
+  integer,
 } from "drizzle-orm/pg-core"
 
 // Better Auth tables
@@ -69,6 +70,7 @@ export const testTypes = pgTable("test_types", {
   id: uuid("id").primaryKey().defaultRandom(),
   name: text("name").notNull(),
   isActive: boolean("is_active").notNull().default(true),
+  currentOrderNumber: integer("current_order_number").notNull().default(1),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
@@ -98,6 +100,7 @@ export const patientTests = pgTable("patient_tests", {
     .notNull()
     .references(() => patients.id, { onDelete: "cascade" }),
   testType: text("test_type").notNull(),
+  orderNumber: integer("order_number").notNull().default(1),
   status: text("status", { enum: ["pending", "complete"] })
     .notNull()
     .default("pending"),

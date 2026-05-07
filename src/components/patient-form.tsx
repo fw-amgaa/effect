@@ -9,6 +9,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { DatePicker } from "@/components/ui/date-picker"
+import { TestSelector } from "@/components/test-selector"
 import { GENDER_OPTIONS } from "@/lib/constants"
 import { createPatient } from "@/server/patients"
 import { toast } from "sonner"
@@ -19,7 +20,7 @@ import {
   Mail01Icon,
   RegisterIcon,
 } from "@hugeicons/core-free-icons"
-import type { User } from "@/lib/db/schema"
+import type { TestType, User } from "@/lib/db/schema"
 
 function calculateAge(dob: string): number {
   const birth = new Date(dob)
@@ -31,14 +32,20 @@ function calculateAge(dob: string): number {
 
 interface PatientFormProps {
   user: User | null
+  activeTestTypes?: TestType[]
   onSuccess?: () => void
 }
 
-export function PatientForm({ user, onSuccess }: PatientFormProps) {
+export function PatientForm({
+  user,
+  activeTestTypes = [],
+  onSuccess,
+}: PatientFormProps) {
   const [loading, setLoading] = useState(false)
   const [gender, setGender] = useState("")
   const [dateOfBirth, setDateOfBirth] = useState("")
   const [age, setAge] = useState("")
+  const [selectedTests, setSelectedTests] = useState<string[]>([])
 
   function handleDateOfBirthChange(value: string) {
     setDateOfBirth(value)
@@ -55,6 +62,7 @@ export function PatientForm({ user, onSuccess }: PatientFormProps) {
     setGender("")
     setDateOfBirth("")
     setAge("")
+    setSelectedTests([])
   }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -75,6 +83,7 @@ export function PatientForm({ user, onSuccess }: PatientFormProps) {
           phone: formData.get("phone") as string,
           email: (formData.get("email") as string) || undefined,
           createdBy: user?.id,
+          testTypes: selectedTests.length > 0 ? selectedTests : undefined,
         },
       })
       toast.success("Үйлчлүүлэгч амжилттай бүртгэгдлээ")
@@ -103,7 +112,7 @@ export function PatientForm({ user, onSuccess }: PatientFormProps) {
         <div className="grid grid-cols-1 gap-x-6 gap-y-8 md:grid-cols-4">
           {/* Last name */}
           <div className="space-y-2">
-            <label className="ml-1 block text-[11px] font-bold uppercase text-muted-foreground/80">
+            <label className="ml-1 block text-[11px] font-bold text-muted-foreground/80 uppercase">
               Овог
             </label>
             <Input
@@ -116,7 +125,7 @@ export function PatientForm({ user, onSuccess }: PatientFormProps) {
 
           {/* First name */}
           <div className="space-y-2">
-            <label className="ml-1 block text-[11px] font-bold uppercase text-muted-foreground/80">
+            <label className="ml-1 block text-[11px] font-bold text-muted-foreground/80 uppercase">
               Нэр
             </label>
             <Input
@@ -129,7 +138,7 @@ export function PatientForm({ user, onSuccess }: PatientFormProps) {
 
           {/* Date of birth */}
           <div className="space-y-2">
-            <label className="ml-1 block text-[11px] font-bold uppercase text-muted-foreground/80">
+            <label className="ml-1 block text-[11px] font-bold text-muted-foreground/80 uppercase">
               Төрсөн огноо
             </label>
             <DatePicker
@@ -142,7 +151,7 @@ export function PatientForm({ user, onSuccess }: PatientFormProps) {
 
           {/* Age (auto-calculated) */}
           <div className="space-y-2">
-            <label className="ml-1 block text-[11px] font-bold uppercase text-muted-foreground/80">
+            <label className="ml-1 block text-[11px] font-bold text-muted-foreground/80 uppercase">
               Нас
             </label>
             <Input
@@ -156,7 +165,7 @@ export function PatientForm({ user, onSuccess }: PatientFormProps) {
 
           {/* Gender */}
           <div className="space-y-2">
-            <label className="ml-1 block text-[11px] font-bold uppercase text-muted-foreground/80">
+            <label className="ml-1 block text-[11px] font-bold text-muted-foreground/80 uppercase">
               Хүйс
             </label>
             <Select
@@ -181,42 +190,59 @@ export function PatientForm({ user, onSuccess }: PatientFormProps) {
 
           {/* Phone */}
           <div className="space-y-2">
-            <label className="ml-1 block text-[11px] font-bold uppercase text-muted-foreground/80">
+            <label className="ml-1 block text-[11px] font-bold text-muted-foreground/80 uppercase">
               Утасны дугаар
             </label>
             <div className="relative">
-              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground/40">
-                <HugeiconsIcon icon={Call02Icon} strokeWidth={2} className="size-[18px]" />
+              <span className="absolute top-1/2 left-4 -translate-y-1/2 text-muted-foreground/40">
+                <HugeiconsIcon
+                  icon={Call02Icon}
+                  strokeWidth={2}
+                  className="size-[18px]"
+                />
               </span>
               <Input
                 name="phone"
                 type="tel"
                 placeholder="0000 0000"
                 required
-                className="h-11 rounded-xl border-outline-variant/30 bg-card pl-11 pr-4 text-sm"
+                className="h-11 rounded-xl border-outline-variant/30 bg-card pr-4 pl-11 text-sm"
               />
             </div>
           </div>
 
           {/* Email */}
           <div className="col-span-1 space-y-2 md:col-span-2">
-            <label className="ml-1 block text-[11px] font-bold uppercase text-muted-foreground/80">
+            <label className="ml-1 block text-[11px] font-bold text-muted-foreground/80 uppercase">
               Имэйл
             </label>
             <div className="relative">
-              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground/40">
-                <HugeiconsIcon icon={Mail01Icon} strokeWidth={2} className="size-[18px]" />
+              <span className="absolute top-1/2 left-4 -translate-y-1/2 text-muted-foreground/40">
+                <HugeiconsIcon
+                  icon={Mail01Icon}
+                  strokeWidth={2}
+                  className="size-[18px]"
+                />
               </span>
               <Input
                 name="email"
                 type="email"
                 placeholder="example@clinic.mn"
-                className="h-11 rounded-xl border-outline-variant/30 bg-card pl-11 pr-4 text-sm"
+                className="h-11 rounded-xl border-outline-variant/30 bg-card pr-4 pl-11 text-sm"
               />
             </div>
           </div>
         </div>
       </section>
+
+      {/* Tests */}
+      {/*
+        <TestSelector
+          activeTestTypes={activeTestTypes}
+          selected={selectedTests}
+          onChange={setSelectedTests}
+        />
+      */}
 
       {/* Bottom actions */}
       <div className="flex justify-end gap-4 border-t border-surface-container-high pt-10">
@@ -236,7 +262,11 @@ export function PatientForm({ user, onSuccess }: PatientFormProps) {
           disabled={loading || !gender || !dateOfBirth}
           className="gap-3 bg-primary-container px-12 py-3.5 text-sm font-bold text-on-primary-container shadow-lg shadow-primary-container/20 transition-all hover:scale-[1.02] hover:bg-primary-container/90 active:scale-95"
         >
-          <HugeiconsIcon icon={RegisterIcon} strokeWidth={2} className="size-[18px]" />
+          <HugeiconsIcon
+            icon={RegisterIcon}
+            strokeWidth={2}
+            className="size-[18px]"
+          />
           <span>{loading ? "Бүртгэж байна..." : "Бүртгэх"}</span>
         </Button>
       </div>

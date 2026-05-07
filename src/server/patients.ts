@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start"
 import { db } from "@/lib/db"
-import { patients, patientTests, testFiles } from "@/lib/db/schema"
+import { patients, patientTests, testFiles, testTypes } from "@/lib/db/schema"
 import { eq, desc, ilike, or, and, sql, inArray } from "drizzle-orm"
 
 export const getPatients = createServerFn({ method: "GET" })
@@ -51,8 +51,33 @@ export const getPatients = createServerFn({ method: "GET" })
         .where(where),
     ])
 
+    const patientIds = result.map((p) => p.id)
+    const tests =
+      patientIds.length > 0
+        ? await db
+            .select({
+              patientId: patientTests.patientId,
+              orderNumber: patientTests.orderNumber,
+            })
+            .from(patientTests)
+            .where(inArray(patientTests.patientId, patientIds))
+            .orderBy(desc(patientTests.createdAt))
+        : []
+
+    const orderNumbersByPatient = new Map<string, number[]>()
+    for (const t of tests) {
+      const list = orderNumbersByPatient.get(t.patientId) ?? []
+      list.push(t.orderNumber)
+      orderNumbersByPatient.set(t.patientId, list)
+    }
+
+    const dataWithOrders = result.map((p) => ({
+      ...p,
+      orderNumbers: orderNumbersByPatient.get(p.id) ?? [],
+    }))
+
     return {
-      data: result,
+      data: dataWithOrders,
       total: countResult[0]?.count ?? 0,
       page,
       pageSize,
@@ -108,30 +133,42 @@ export const createPatient = createServerFn({ method: "POST" })
     }) => data,
   )
   .handler(async ({ data }) => {
-    const [patient] = await db
-      .insert(patients)
-      .values({
-        firstName: data.firstName,
-        lastName: data.lastName,
-        age: data.age,
-        gender: data.gender,
-        dateOfBirth: data.dateOfBirth,
-        phone: data.phone,
-        email: data.email || null,
-        createdBy: data.createdBy || null,
-      })
-      .returning()
+    return db.transaction(async (tx) => {
+      const [patient] = await tx
+        .insert(patients)
+        .values({
+          firstName: data.firstName,
+          lastName: data.lastName,
+          age: data.age,
+          gender: data.gender,
+          dateOfBirth: data.dateOfBirth,
+          phone: data.phone,
+          email: data.email || null,
+          createdBy: data.createdBy || null,
+        })
+        .returning()
 
-    if (data.testTypes && data.testTypes.length > 0) {
-      await db.insert(patientTests).values(
-        data.testTypes.map((testType) => ({
-          patientId: patient!.id,
-          testType,
-        })),
-      )
-    }
+      if (data.testTypes && data.testTypes.length > 0) {
+        for (const testType of data.testTypes) {
+          const [tt] = await tx
+            .update(testTypes)
+            .set({
+              currentOrderNumber: sql`${testTypes.currentOrderNumber} + 1`,
+              updatedAt: new Date(),
+            })
+            .where(eq(testTypes.name, testType))
+            .returning({ currentOrderNumber: testTypes.currentOrderNumber })
+          const orderNumber = tt?.currentOrderNumber ?? 1
+          await tx.insert(patientTests).values({
+            patientId: patient!.id,
+            testType,
+            orderNumber,
+          })
+        }
+      }
 
-    return patient
+      return patient
+    })
   })
 
 export const updatePatient = createServerFn({ method: "POST" })

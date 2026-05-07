@@ -57,3 +57,17 @@ export const deleteTestType = createServerFn({ method: "POST" })
     await db.delete(testTypes).where(eq(testTypes.id, data.id))
     return { success: true }
   })
+
+export const updateTestTypeOrderNumber = createServerFn({ method: "POST" })
+  .inputValidator((data: { id: string; currentOrderNumber: number }) => data)
+  .handler(async ({ data }) => {
+    const [testType] = await db
+      .update(testTypes)
+      .set({
+        currentOrderNumber: data.currentOrderNumber,
+        updatedAt: new Date(),
+      })
+      .where(eq(testTypes.id, data.id))
+      .returning()
+    return testType
+  })

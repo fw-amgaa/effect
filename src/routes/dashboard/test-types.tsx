@@ -6,6 +6,7 @@ import {
   updateTestType,
   toggleTestTypeStatus,
   deleteTestType,
+  updateTestTypeOrderNumber,
 } from "@/server/test-types"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -131,6 +132,9 @@ function TestTypesPage() {
                   Шинжилгээний нэр
                 </th>
                 <th className="px-6 py-4 text-center text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">
+                  Одоогийн дугаар
+                </th>
+                <th className="px-6 py-4 text-center text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">
                   Төлөв
                 </th>
                 <th className="px-6 py-4 text-right text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">
@@ -211,6 +215,36 @@ function TestTypeRow({
 }) {
   const [editOpen, setEditOpen] = useState(false)
   const [toggling, setToggling] = useState(false)
+  const [editingOrder, setEditingOrder] = useState(false)
+  const [orderInput, setOrderInput] = useState(String(testType.currentOrderNumber))
+  const [savingOrder, setSavingOrder] = useState(false)
+
+  async function commitOrderEdit() {
+    const parsed = Number(orderInput)
+    if (!Number.isInteger(parsed) || parsed < 1) {
+      setOrderInput(String(testType.currentOrderNumber))
+      setEditingOrder(false)
+      return
+    }
+    if (parsed === testType.currentOrderNumber) {
+      setEditingOrder(false)
+      return
+    }
+    setSavingOrder(true)
+    try {
+      await updateTestTypeOrderNumber({
+        data: { id: testType.id, currentOrderNumber: parsed },
+      })
+      toast.success("Дугаар шинэчлэгдлээ")
+      setEditingOrder(false)
+      onUpdated()
+    } catch {
+      toast.error("Алдаа гарлаа")
+      setOrderInput(String(testType.currentOrderNumber))
+    } finally {
+      setSavingOrder(false)
+    }
+  }
 
   async function handleToggle() {
     setToggling(true)
@@ -248,6 +282,41 @@ function TestTypeRow({
         <span className={`text-sm font-bold ${testType.isActive ? "text-foreground" : "text-muted-foreground/50"}`}>
           {testType.name}
         </span>
+      </td>
+      <td className="px-6 py-5 text-center">
+        {editingOrder ? (
+          <input
+            autoFocus
+            type="number"
+            min={1}
+            value={orderInput}
+            onChange={(e) => setOrderInput(e.target.value)}
+            onBlur={commitOrderEdit}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault()
+                ;(e.target as HTMLInputElement).blur()
+              } else if (e.key === "Escape") {
+                setOrderInput(String(testType.currentOrderNumber))
+                setEditingOrder(false)
+              }
+            }}
+            disabled={savingOrder}
+            className="h-8 w-20 rounded-md border border-outline-variant/30 bg-card px-2 text-center text-sm font-bold text-foreground focus:border-primary focus:outline-none"
+          />
+        ) : (
+          <button
+            type="button"
+            onClick={() => {
+              setOrderInput(String(testType.currentOrderNumber))
+              setEditingOrder(true)
+            }}
+            title="Одоогийн дугаар засах"
+            className="rounded-md px-3 py-1 text-sm font-bold text-foreground transition-colors hover:bg-surface-container-high"
+          >
+            {testType.currentOrderNumber}
+          </button>
+        )}
       </td>
       <td className="px-6 py-5 text-center">
         <button

@@ -20,6 +20,8 @@ import {
 } from "@hugeicons/core-free-icons"
 import type { Patient } from "@/lib/db/schema"
 
+type PatientWithOrders = Patient & { orderNumbers: number[] }
+
 const PAGE_SIZE = 10
 
 type SearchParams = {
@@ -226,6 +228,9 @@ function PatientsPage() {
                   Овог нэр
                 </th>
                 <th className="px-6 py-5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">
+                  Дугаар
+                </th>
+                <th className="px-6 py-5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">
                   Нас
                 </th>
                 <th className="px-6 py-5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">
@@ -246,14 +251,14 @@ function PatientsPage() {
               {patients.data.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={7}
+                    colSpan={8}
                     className="px-6 py-16 text-center text-sm text-muted-foreground"
                   >
                     Үйлчлүүлэгч олдсонгүй
                   </td>
                 </tr>
               ) : (
-                patients.data.map((patient: Patient, idx: number) => (
+                patients.data.map((patient: PatientWithOrders, idx: number) => (
                   <tr
                     key={patient.id}
                     className="group cursor-pointer transition-colors hover:bg-surface-container-low"
@@ -281,6 +286,11 @@ function PatientsPage() {
                           )}
                         </div>
                       </Link>
+                    </td>
+                    <td className="px-6 py-5 font-mono text-sm text-muted-foreground">
+                      {patient.orderNumbers.length > 0
+                        ? patient.orderNumbers.join("/")
+                        : "—"}
                     </td>
                     <td className="px-6 py-5 text-sm font-medium text-muted-foreground">
                       {patient.age}

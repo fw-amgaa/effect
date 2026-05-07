@@ -1,10 +1,17 @@
 import { createFileRoute, useRouter, Link } from "@tanstack/react-router"
 import { useState } from "react"
 import { getPatient, updatePatient } from "@/server/patients"
-import { uploadTestFile, addTestsToPatient, deleteTest, deleteTestFile } from "@/server/tests"
+import {
+  uploadTestFile,
+  addTestsToPatient,
+  deleteTest,
+  deleteTestFile,
+  updateTestOrderNumber,
+} from "@/server/tests"
 import { sendBulkTestResultEmail } from "@/server/email"
 import { getActiveTestTypes } from "@/server/test-types"
 import { Button } from "@/components/ui/button"
+import { TestSelector } from "@/components/test-selector"
 import { Input } from "@/components/ui/input"
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import {
@@ -467,8 +474,8 @@ function TestsSection({
                     className="size-4"
                   />
                 </th>
-                <th className="w-12 px-2 py-4 text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">
-                  #
+                <th className="w-20 px-2 py-4 text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">
+                  Дугаар
                 </th>
                 <th className="px-6 py-4 text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">
                   Шинжилгээний нэр
@@ -488,10 +495,9 @@ function TestsSection({
               </tr>
             </thead>
             <tbody className="divide-y divide-outline-variant/5">
-              {tests.map((test, idx) => (
+              {tests.map((test) => (
                 <TestRow
                   key={test.id}
-                  index={idx + 1}
                   test={test}
                   selected={selectedTestIds.has(test.id)}
                   onToggleSelect={() => toggleTest(test.id)}
@@ -508,21 +514,49 @@ function TestsSection({
 
 function TestRow({
   test,
-  index,
   selected,
   onToggleSelect,
   onUpdated,
 }: {
   test: PatientTestWithFiles
-  index: number
   selected: boolean
   onToggleSelect: () => void
   onUpdated: () => void
 }) {
   const [uploading, setUploading] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [editingOrder, setEditingOrder] = useState(false)
+  const [orderInput, setOrderInput] = useState(String(test.orderNumber))
+  const [savingOrder, setSavingOrder] = useState(false)
 
   const canSelect = test.files.length > 0
+
+  async function commitOrderEdit() {
+    const parsed = Number(orderInput)
+    if (!Number.isInteger(parsed) || parsed < 1) {
+      setOrderInput(String(test.orderNumber))
+      setEditingOrder(false)
+      return
+    }
+    if (parsed === test.orderNumber) {
+      setEditingOrder(false)
+      return
+    }
+    setSavingOrder(true)
+    try {
+      await updateTestOrderNumber({
+        data: { testId: test.id, orderNumber: parsed },
+      })
+      toast.success("Дугаар шинэчлэгдлээ")
+      setEditingOrder(false)
+      onUpdated()
+    } catch {
+      toast.error("Алдаа гарлаа")
+      setOrderInput(String(test.orderNumber))
+    } finally {
+      setSavingOrder(false)
+    }
+  }
 
   async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const files = e.target.files
@@ -583,8 +617,40 @@ function TestRow({
           className="size-4"
         />
       </td>
-      <td className="px-2 py-5 text-sm font-medium text-muted-foreground/50">
-        {String(index).padStart(2, "0")}
+      <td className="px-2 py-5 text-sm font-bold text-foreground">
+        {editingOrder ? (
+          <input
+            autoFocus
+            type="number"
+            min={1}
+            value={orderInput}
+            onChange={(e) => setOrderInput(e.target.value)}
+            onBlur={commitOrderEdit}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault()
+                ;(e.target as HTMLInputElement).blur()
+              } else if (e.key === "Escape") {
+                setOrderInput(String(test.orderNumber))
+                setEditingOrder(false)
+              }
+            }}
+            disabled={savingOrder}
+            className="h-8 w-16 rounded-md border border-outline-variant/30 bg-card px-2 text-sm font-bold text-foreground focus:border-primary focus:outline-none"
+          />
+        ) : (
+          <button
+            type="button"
+            onClick={() => {
+              setOrderInput(String(test.orderNumber))
+              setEditingOrder(true)
+            }}
+            title="Дугаар засах"
+            className="rounded-md px-2 py-1 text-sm font-bold text-foreground transition-colors hover:bg-surface-container-high"
+          >
+            {test.orderNumber}
+          </button>
+        )}
       </td>
       <td className="px-6 py-5">
         <span className="text-sm font-bold text-foreground">{test.testType}</span>
@@ -715,14 +781,6 @@ function AddTestCard({
 
   const existingTestTypeNames = new Set(existingTests.map((t) => t.testType))
 
-  function toggleTest(testName: string) {
-    setSelectedTests((prev) =>
-      prev.includes(testName)
-        ? prev.filter((t) => t !== testName)
-        : [...prev, testName],
-    )
-  }
-
   async function handleAdd() {
     if (selectedTests.length === 0) return
     setAdding(true)
@@ -739,81 +797,34 @@ function AddTestCard({
   }
 
   return (
-    <section className="space-y-6 rounded-2xl border border-primary-container/10 bg-surface-container-low p-8">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <HugeiconsIcon icon={Add01Icon} strokeWidth={2} className="size-5 text-primary" />
-          <h3 className="text-lg font-bold text-foreground">Шинэ шинжилгээ нэмэх</h3>
-        </div>
-        <span className="rounded-full bg-surface-container-high px-3 py-1 text-[10px] font-bold uppercase text-muted-foreground">
-          Нийт {activeTestTypes.length} төрөл
-          {selectedTests.length > 0 && (
-            <> &middot; {selectedTests.length} сонгосон</>
-          )}
-        </span>
-      </div>
-
-      {activeTestTypes.length === 0 ? (
-        <p className="text-sm text-muted-foreground py-8 text-center">
-          Идэвхтэй шинжилгээний төрөл бүртгэгдээгүй байна. Шинжилгээний удирдлага хэсгээс нэмнэ үү.
-        </p>
-      ) : (
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-          {activeTestTypes.map((testType) => {
-            const isChecked = selectedTests.includes(testType.name)
-            const alreadyExists = existingTestTypeNames.has(testType.name)
-            return (
-              <label
-                key={testType.id}
-                className={`group relative flex cursor-pointer items-center gap-4 rounded-2xl border p-4 shadow-sm transition-all ${
-                  alreadyExists
-                    ? "cursor-default border-transparent bg-card opacity-50"
-                    : isChecked
-                      ? "border-primary-container/50 bg-card"
-                      : "border-transparent bg-card hover:border-primary-container/30"
-                }`}
-              >
-                <Checkbox
-                  checked={isChecked}
-                  onCheckedChange={() => !alreadyExists && toggleTest(testType.name)}
-                  disabled={alreadyExists}
-                  className="size-5"
-                />
-                <span className="text-sm font-semibold text-foreground transition-colors group-hover:text-primary">
-                  {testType.name}
-                </span>
-                {alreadyExists && (
-                  <span className="ml-auto text-[10px] font-bold uppercase text-muted-foreground/50">
-                    Нэмсэн
-                  </span>
-                )}
-              </label>
-            )
-          })}
-        </div>
-      )}
-
-      {selectedTests.length > 0 && (
-        <div className="flex justify-end gap-3 border-t border-outline-variant/10 pt-5">
-          <Button
-            variant="ghost"
-            onClick={() => setSelectedTests([])}
-            className="text-sm font-semibold"
-          >
-            Цуцлах
-          </Button>
-          <Button
-            onClick={handleAdd}
-            disabled={adding}
-            className="gap-2 rounded-xl bg-primary-container px-6 text-sm font-semibold text-white"
-          >
-            <HugeiconsIcon icon={Add01Icon} strokeWidth={2} className="size-4" />
-            {adding
-              ? "Нэмж байна..."
-              : `${selectedTests.length} шинжилгээ нэмэх`}
-          </Button>
-        </div>
-      )}
-    </section>
+    <TestSelector
+      activeTestTypes={activeTestTypes}
+      selected={selectedTests}
+      onChange={setSelectedTests}
+      existingTestNames={existingTestTypeNames}
+      footer={
+        selectedTests.length > 0 ? (
+          <div className="flex justify-end gap-3 border-t border-outline-variant/10 pt-5">
+            <Button
+              variant="ghost"
+              onClick={() => setSelectedTests([])}
+              className="text-sm font-semibold"
+            >
+              Цуцлах
+            </Button>
+            <Button
+              onClick={handleAdd}
+              disabled={adding}
+              className="gap-2 rounded-xl bg-primary-container px-6 text-sm font-semibold text-white"
+            >
+              <HugeiconsIcon icon={Add01Icon} strokeWidth={2} className="size-4" />
+              {adding
+                ? "Нэмж байна..."
+                : `${selectedTests.length} шинжилгээ нэмэх`}
+            </Button>
+          </div>
+        ) : undefined
+      }
+    />
   )
 }
